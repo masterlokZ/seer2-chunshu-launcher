@@ -1,19 +1,30 @@
 /**
  * build-obfuscate.js — Seer2 Launcher 构建前混淆脚本
  *
- * 完整混淆目标：
+ * 完整混淆目标 (FULL):
  *   main.js, game-preload.js, image-preload.js,
  *   overlay-preload.js, preload.js
  *
- * 轻量混淆目标：
- *   main.js 拆出的 CommonJS 运行模块，以及其它顶层运行辅助模块。
- *   轻量配置只压缩并重命名局部标识符，不做控制流平坦化、死代码
- *   和字符串数组编码，避免重新拉高资源转换与皮肤列表热路径的 CPU。
+ * 轻量混淆目标 (LIGHT):
+ *   core-net.js,                          — 网络拦截层, 之前完全明文暴露服务器 URL
+ *   custom-skin-sol.js, swf-battle-capability.js, uclient-ftr-x86-converter.js,
+ *   modules/*.js (33 个)
  *
- * 明确排除：
- *   core-net.js   — 高频网络拦截逻辑，混淆会引发 CPU 尖峰
- *   setup.js      — 纯 Node 安装脚本
- *   *.html / *.ps1 / *.json — 非 JS 文件
+ * LIGHT 配置只 compact + hexadecimal 变量名, 不做控制流平坦化/死代码/字符串数组,
+ * 对运行时性能零影响。core-net.js 之前完全明文暴露服务器 URL, 现在加 LIGHT 加固。
+ *
+ * 明确排除:
+ *   download-flash.js      — 构建时 CLI 脚本, 运行时不执行; 且 new Function() 无法验证
+ *   setup.js               — 纯 Node 安装脚本, 运行时不执行
+ *   afterPack.js           — 构建后处理, 运行时不执行
+ *   sync-version.js        — 构建时版本同步, 运行时不执行
+ *   autotest.js            — 自动测试, 运行时不执行
+ *   generate-manifest.js   — 构建时生成 manifest, 运行时不执行
+ *   core-net.*.bak.js      — 备份文件
+ *   *.html / *.ps1 / *.json / *.bak — 非 JS 文件
+ *
+ * 所有混淆产物写入前先 new Function() 验证语法, 防止 javascript-obfuscator
+ * 偶发生成 SyntaxError 代码导致用户运行时崩溃。
  */
 'use strict';
 
@@ -30,6 +41,7 @@ const PRIMARY_TARGET_FILES = [
 ];
 
 const LIGHT_TOP_LEVEL_FILES = [
+  'core-net.js',
   'custom-skin-sol.js',
   'swf-battle-capability.js',
   'uclient-ftr-x86-converter.js',
@@ -126,6 +138,13 @@ targets.forEach(function(target) {
     const result        = JavaScriptObfuscator.obfuscate(original, target.options);
     const obfuscated    = result.getObfuscatedCode();
     const obfSize       = Buffer.byteLength(obfuscated, 'utf8');
+
+    // 语法验证: javascript-obfuscator 偶发生成 SyntaxError, 构建时拦截
+    try {
+      new Function(obfuscated);
+    } catch(verr) {
+      throw new Error('混淆后语法错误: ' + verr.message);
+    }
 
     // 确保文件可写（ZIP 解压后可能保留只读属性）
     fs.chmodSync(filePath, 0o644);
