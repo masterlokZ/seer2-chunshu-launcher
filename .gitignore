@@ -17,8 +17,9 @@ seer2-春树登陆器.exe
 *.bak_*
 *.log
 
-# 构建后会从游戏服务器下载的 SWFs
-local-res/
+# 构建后会从游戏服务器下载的 SWFs (运行时目录, 根目录)
+/local-res/
+# 源码里的 SWF 资产 (src/common/local-res/) 需要入库, 不能排除
 
 # 构建后 npm install 生成
 package-lock.json
