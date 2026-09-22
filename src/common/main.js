@@ -112,20 +112,22 @@ if (process.env.LAUNCHER_AUTOTEST === '1' && process.env.LAUNCHER_AUTOTEST_USER_
   }
 }
 
-// userData 便携模式: 跟 GameCache 同样的可写性检测
-// exe 目录可写 → userData 放在 exe 旁边的 user-data/ 文件夹
-// exe 目录不可写 (UAC/Program Files) → 回退默认 AppData 路径
+// login-data: 只存 Cookies (登录态), 与 user-data 完全隔离
+// user-data 会被构建清理, login-data 永远不碰 (除非卸载/手动删)
 try {
-  var _portableUserDataDir = path.join(path.dirname(app.getPath('exe')), 'user-data');
-  fs.mkdirSync(_portableUserDataDir, { recursive: true });
-  var _probeFile = path.join(_portableUserDataDir, '.write_test_' + Date.now());
+  var _exeDir = path.dirname(app.getPath('exe'));
+  var _loginDataDir = path.join(_exeDir, 'login-data');
+  fs.mkdirSync(_loginDataDir, { recursive: true });
+  var _probeFile = path.join(_loginDataDir, '.write_test_' + Date.now());
   fs.writeFileSync(_probeFile, 'ok');
   fs.unlinkSync(_probeFile);
-  app.setPath('userData', _portableUserDataDir);
-  console.log('[PORTABLE] userData → ' + _portableUserDataDir);
+  app.setPath('userData', _loginDataDir);
+  console.log('[LOGIN] userData (Cookies only) → ' + _loginDataDir);
 } catch(_) {
-  console.log('[PORTABLE] exe dir not writable, keeping default userData: ' + app.getPath('userData'));
+  console.log('[LOGIN] exe dir not writable, using AppData');
 }
+
+// GameCache / other runtime data 保持原路径 (exe旁\GameCache\)
 
 const EARLY_QUALITY_CONFIG_FILE = app.isPackaged
   ? path.join(path.dirname(process.execPath), 'quality-config.json')

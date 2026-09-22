@@ -3,19 +3,8 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 rem ---------------------------------------------------------------------------
 rem clean-mode.cmd
-rem
-rem 用法: clean-mode.cmd ^<obfuscate=0^|1^>
-rem
-rem 在每个中文构建入口脚本调用 build-core 之前调用一次:
-rem   清空 output\<mode>\packages\
-rem   清空 output\<mode>\workspace\
-rem   清空 output\<mode>\release-exe\
-rem 然后重建空目录 (含 workspace\_logs)。
-rem
-rem 重要约束:
-rem   * 只清对应 mode, 不会误删另一个 mode (见 MODE 推导逻辑)。
-rem   * 只在入口脚本最前面调用一次。同一个入口脚本里多次调用 build-core
-rem     不能把这个 helper 重复调一遍, 否则前面架构的产物会被吃掉。
+rem Wipe output\<mode>\packages, workspace, release-exe
+rem user-data protection is handled in build-core.cmd (single source of truth)
 rem ---------------------------------------------------------------------------
 
 if "%~1"=="" goto :usage
@@ -37,9 +26,8 @@ set "PKG_DIR=%MODE_ROOT%\packages"
 set "WS_ROOT=%MODE_ROOT%\workspace"
 set "REL_DIR=%MODE_ROOT%\release-exe"
 
-echo [clean-mode] mode=%MODE% wiping packages / workspace / release-exe
+echo [clean-mode] mode=%MODE% wiping workspace / release-exe (keep packages, build-core handles it)
 
-call :wipe_dir "%PKG_DIR%"
 call :wipe_dir "%WS_ROOT%"
 call :wipe_dir "%REL_DIR%"
 
@@ -52,7 +40,7 @@ echo [clean-mode] mode=%MODE% done
 endlocal
 exit /b 0
 
-rem ── 顽固目录擦除: rmdir + robocopy /MIR 兜底 (与 build-core 内部一致) ──
+rem -- rmdir + robocopy /MIR fallback --
 :wipe_dir
 if "%~1"=="" exit /b 0
 if not exist "%~1" exit /b 0

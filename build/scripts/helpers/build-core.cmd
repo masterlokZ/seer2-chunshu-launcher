@@ -156,6 +156,17 @@ if !RC! GEQ 8 (
     goto :fail
 )
 
+rem -- Pre-check: NSIS customRemoveFiles macro file ------------------------
+rem Without this, electron-builder won't !include our customRemoveFiles macro,
+rem and uninstaller.nsh falls through to RMDir /r $INSTDIR (deletes login-data).
+if not exist "%WS_DIR%\build\installer\delete-old-local-res.nsh" (
+    echo %TAG% FATAL: 未找到 NSIS 自定义宏文件 build\installer\delete-old-local-res.nsh
+    echo %TAG%        重装覆盖时 login-data/Cookies 会被删除!
+    echo %TAG%        请确认 src\common\build\installer\delete-old-local-res.nsh 存在且已入库
+    goto :fail
+)
+echo %TAG%      NSIS custom macro OK (delete-old-local-res.nsh 已就绪)
+
 rem -- Step 2: 复制 variant 覆盖文件 (HTML / package / 可选 png) -------------
 echo %TAG% [2/7] 应用变体覆盖 (%VARIANT%)
 copy /Y "%VARIANT_DIR%\local-game-index.%VARIANT%.html" "%WS_DIR%\local-game-index.html" >>"%LOG_FILE%" 2>&1 || goto :fail_copy
@@ -284,17 +295,14 @@ if "!FOUND_EXE!"=="0" (
     goto :fail
 )
 
-rem 拷贝 unpacked 目录并改名成中文清晰格式
+rem Mirror-wipe unpacked, keep login-data dir (Cookies only, never cleaned)
 if exist "%WS_DIR%\dist-build\%UNPACK_SRC%" (
     if exist "%PKG_DIR%\%UNPACK_NAME%" (
-        rmdir /s /q "%PKG_DIR%\%UNPACK_NAME%" 2>nul
-        if exist "%PKG_DIR%\%UNPACK_NAME%" (
-            set "EMPTY_TMP=%TEMP%\seer2-empty-%RANDOM%"
-            mkdir "!EMPTY_TMP!" 2>nul
-            robocopy "!EMPTY_TMP!" "%PKG_DIR%\%UNPACK_NAME%" /MIR /NP /NFL /NDL /NJH /NJS >nul 2>&1
-            rmdir /s /q "!EMPTY_TMP!" 2>nul
-            rmdir /s /q "%PKG_DIR%\%UNPACK_NAME%" 2>nul
-        )
+        set "EMPTY_TMP=%TEMP%\seer2-empty-%RANDOM%"
+        mkdir "!EMPTY_TMP!" 2>nul
+        rem /XD "login-data" = never wipe the dir that stores Cookies
+        robocopy "!EMPTY_TMP!" "%PKG_DIR%\%UNPACK_NAME%" /MIR /XD "login-data" /NP /NFL /NDL /NJH /NJS >nul 2>&1
+        rmdir /s /q "!EMPTY_TMP!" 2>nul
     )
     robocopy "%WS_DIR%\dist-build\%UNPACK_SRC%" "%PKG_DIR%\%UNPACK_NAME%" /E /NP /NFL /NDL /NJH /NJS >>"%LOG_FILE%" 2>&1
     echo %TAG%   + %UNPACK_NAME%\
