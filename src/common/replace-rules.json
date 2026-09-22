@@ -1,0 +1,32 @@
+[
+  {
+    "url": "http://43.138.190.6/seer2/module/app/GadSelectPetPanel.swf",
+    "file": ".\\复苏纹章by_神秘大佬.swf",
+    "label": "复苏纹章",
+    "enabled": true
+  },
+  {
+    "url": "http://43.138.190.6/seer2/module/app/ItemBagPanel.swf",
+    "file": ".\\背包装扮穿戴修复.swf",
+    "label": "背包修复",
+    "enabled": true
+  },
+  {
+    "url": "http://43.138.190.6/seer2/res/map/config/70.xml",
+    "file": "http://seer2.61.com/res/map/config/70.xml",
+    "label": "官服传送室配置",
+    "enabled": false
+  },
+  {
+    "url": "http://43.138.190.6/seer2/module/app/MapPanel.swf",
+    "file": "http://seer2.61.com/module/app/MapPanel.swf",
+    "label": "官服地图",
+    "enabled": false
+  },
+  {
+    "url": "http://43.138.190.6/seer2/res/ui/UI_Arena.swf",
+    "file": "http://seer2.61.com/res/ui/UI_Arena.swf",
+    "label": "官服战斗 UI",
+    "enabled": false
+  }
+]

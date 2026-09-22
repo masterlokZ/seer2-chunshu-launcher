@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://127.0.0.1:* http://seer.61.com; object-src 'self' http://127.0.0.1:* http://seer.61.com; script-src 'unsafe-inline'">
+  <style>
+    html,body,#host{width:100%;height:100%;margin:0;overflow:hidden;background:#07111d}
+    object{display:block;width:100%;height:100%}
+  </style>
+</head>
+<body>
+  <div id="host"></div>
+  <script>
+    var params=new URLSearchParams(location.search);
+    var origin=params.get('previewOrigin')||'';
+    var serial=0;
+    var currentPlayer=null;
+    window.__skinThumbState={serial:0,state:'idle',message:''};
+    window.renderSkinThumbnail=function(source,mode){
+      serial++;
+      var current=serial;
+      if(currentPlayer){try{if(typeof currentPlayer.disposePreview==='function')currentPlayer.disposePreview()}catch(ignoreDispose){}}
+      var callback='skinThumbReady_'+current;
+      var pollTimer=0;
+      window.__skinThumbState={serial:current,state:'loading',message:''};
+      window[callback]=function(state,labels,message){
+        if(current!==serial)return;
+        window.__skinThumbState={serial:current,state:String(state||''),message:String(message||'')};
+        if(String(state||'')==='ready'||String(state||'')==='error')clearInterval(pollTimer);
+      };
+      var player=origin+'/launcher/skin-preview.swf?v=16&thumb='+current;
+      var flashvars='source='+encodeURIComponent(String(source||''))+'&mode='+encodeURIComponent(mode||'fight')+'&callback='+encodeURIComponent(callback)+'&action=idle&baseWidth=160&baseHeight=160';
+      document.getElementById('host').innerHTML='<object id="skinThumbPlayer" name="skinThumbPlayer" type="application/x-shockwave-flash" data="'+player+'" width="100%" height="100%"><param name="movie" value="'+player+'"><param name="wmode" value="opaque"><param name="quality" value="high"><param name="allowScriptAccess" value="always"><param name="allowNetworking" value="all"><param name="flashvars" value="'+flashvars+'"></object>';
+      currentPlayer=document.getElementById('skinThumbPlayer');
+      // Some PPAPI builds suppress ExternalInterface.call from an offscreen
+      // window while still exposing callbacks registered by the SWF. Polling
+      // that callback proves the player and model are both initialized.
+      pollTimer=setInterval(function(){
+        if(current!==serial){clearInterval(pollTimer);return}
+        var playerObject=document.getElementById('skinThumbPlayer');
+        try{
+          if(playerObject&&typeof playerObject.getAvailableActions==='function'){
+            var labels=playerObject.getAvailableActions();
+            window.__skinThumbState={serial:current,state:'ready',message:'callback-ready',labels:labels||[]};
+            clearInterval(pollTimer);
+          }
+        }catch(ignore){}
+      },100);
+      return current;
+    };
+  </script>
+</body>
+</html>

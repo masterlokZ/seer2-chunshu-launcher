@@ -1,0 +1,246 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>游戏变速</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0a0e1a;--bdr:rgba(0,212,255,.12);--txt:#e2e8f0;--dim:#64748b;--pri:#00d4ff;--sc:#22c55e;--red:#ef4444;}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-family:'Microsoft YaHei','Segoe UI',sans-serif;font-size:11px;display:flex;flex-direction:column;overflow:hidden;user-select:none;}
+.titlebar{height:30px;background:rgba(0,212,255,.06);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:7px;padding:0 10px;-webkit-app-region:drag;flex-shrink:0;}
+.titlebar-txt{font-size:11px;font-weight:600;color:var(--pri);letter-spacing:1px;flex:1;}
+button:focus{outline:none;}
+.titlebar-pin{
+  -webkit-app-region:no-drag;
+  width:20px;
+  height:20px;
+  border:none;
+  border-radius:3px;
+  background:transparent;
+  color:var(--muted, #7e93a8);
+  font-size:13px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  opacity:.5;
+  transition:all .18s;
+  outline:none;
+  margin-left:auto;
+}
+.titlebar-pin:hover{background:rgba(255,255,255,.1);opacity:.85;}
+.titlebar-pin.pinned{color:#f59e0b;opacity:1;outline:none;}
+.titlebar-pin:focus{outline:none;}
+.titlebar-min{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:rgba(100,116,139,.10);color:var(--dim);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.6;transition:all .18s;}.titlebar-min:hover{background:rgba(100,116,139,.25);opacity:1;color:var(--txt);}.titlebar-close{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:rgba(239,68,68,.08);color:var(--red);font-size:12px;cursor:pointer;}
+.titlebar-close:hover{background:rgba(239,68,68,.22);}
+.body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 22px;gap:12px;min-height:0;}
+.speed-row{display:flex;align-items:baseline;gap:5px;}
+.speed-val{font-size:52px;font-weight:700;line-height:1;letter-spacing:-2px;transition:color .2s;}
+.speed-unit{font-size:17px;font-weight:600;color:var(--dim);}
+.badge{font-size:9px;font-weight:700;letter-spacing:1.5px;padding:2px 10px;border-radius:10px;transition:all .2s;}
+.badge.norm {background:rgba(34,197,94,.12); color:var(--sc);border:1px solid rgba(34,197,94,.25);}
+.badge.slow {background:rgba(245,158,11,.12);color:#f59e0b;border:1px solid rgba(245,158,11,.25);}
+.badge.fast {background:rgba(0,212,255,.10); color:var(--pri);border:1px solid rgba(0,212,255,.25);}
+.badge.xfast{background:rgba(168,85,247,.10);color:#a855f7;border:1px solid rgba(168,85,247,.25);}
+.slider-wrap{width:100%;display:flex;align-items:center;gap:8px;}
+.slbl{font-size:9.5px;color:var(--dim);width:28px;flex-shrink:0;}
+.slbl.r{text-align:right;}
+input[type=range]{flex:1;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;}
+.presets{display:flex;gap:6px;width:100%;}
+.pbtn{flex:1;height:28px;border:1px solid rgba(255,255,255,.1);border-radius:6px;background:rgba(255,255,255,.04);color:var(--dim);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .18s;}
+.pbtn:hover{background:rgba(255,255,255,.09);color:var(--txt);}
+.pbtn.active{color:#000 !important;border-color:transparent !important;}
+/* 错误详情框 */
+.err-box{width:100%;padding:6px 9px;background:rgba(239,68,68,.05);border:1px solid rgba(239,68,68,.2);border-radius:6px;display:none;flex-direction:column;gap:4px;}
+.err-msg{font-size:9px;color:#f97316;line-height:1.6;word-break:break-all;}
+.err-btns{display:flex;gap:6px;}
+.err-btn{height:22px;padding:0 10px;border:1px solid rgba(249,115,22,.35);border-radius:4px;background:rgba(249,115,22,.07);color:#f97316;font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .18s;}
+.err-btn:hover{background:rgba(249,115,22,.18);}
+.sbar{height:22px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;background:rgba(10,14,26,.85);border-top:1px solid var(--bdr);font-size:9px;color:var(--dim);flex-shrink:0;}
+.sdot{width:6px;height:6px;border-radius:50%;margin-right:5px;display:inline-block;transition:background .3s,box-shadow .3s;}
+.sdot.ok  {background:var(--sc);box-shadow:0 0 5px var(--sc);}
+.sdot.warn{background:#f97316;box-shadow:0 0 5px #f97316;}
+.sdot.busy{background:var(--pri);box-shadow:0 0 5px var(--pri);}
+.sdot.err {background:var(--red);}
+.sdot.idle{background:var(--dim);}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:rgba(0,212,255,.18);border-radius:2px;}
+</style>
+</head><body>
+<div class="titlebar">
+  <span style="font-size:13px">⚡</span>
+  <span class="titlebar-txt">游 戏 变 速</span>
+  <button class="titlebar-pin" id="btnPin" onclick="togglePin()" title="固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）">📌</button>
+  <button class="titlebar-min" onclick="if(window.electronAPI)window.electronAPI.minimizeSelf()" title="最小化到任务栏">─</button>
+  <button class="titlebar-close" onclick="window.close()">✕</button>
+</div>
+<div class="body">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
+    <div class="speed-row">
+      <span class="speed-val" id="sVal">1.0</span>
+      <span class="speed-unit">x</span>
+    </div>
+    <span class="badge norm" id="sBadge">正常速度</span>
+  </div>
+  <div class="slider-wrap">
+    <span class="slbl">0.1x</span>
+    <input type="range" id="slider" min="1" max="30" step="1" value="10">
+    <span class="slbl r">3.0x</span>
+  </div>
+  <div class="presets">
+    <button class="pbtn" id="p01" onclick="setP(0.1)">0.1x</button>
+    <button class="pbtn" id="p05" onclick="setP(0.5)">0.5x</button>
+    <button class="pbtn active" id="p10" onclick="setP(1.0)">1x</button>
+    <button class="pbtn" id="p20" onclick="setP(2.0)">2x</button>
+    <button class="pbtn" id="p30" onclick="setP(3.0)">3x</button>
+  </div>
+  <div class="err-box" id="errBox">
+    <span class="err-msg" id="errMsg"></span>
+    <div class="err-btns">
+      <button class="err-btn" onclick="retryApply()">重试</button>
+      <button class="err-btn" onclick="hideErr()">关闭</button>
+    </div>
+  </div>
+</div>
+<div class="sbar">
+  <span><span class="sdot idle" id="sdot"></span><span id="stxt">初始化中…</span></span>
+  <span id="sfps" style="font-family:monospace"></span>
+</div>
+<script>
+'use strict';
+var api = window.electronAPI;
+var _pinned = false, _debounce = null, _applying = false, _lastSpeed = 1.0;
+
+function C(s){if(s<1.0)return'#f59e0b';if(s===1.0)return'#22c55e';if(s<=2.0)return'#00d4ff';return'#a855f7';}
+var _ds=null;
+function thumb(c){if(!_ds){_ds=document.createElement('style');document.head.appendChild(_ds);}
+_ds.textContent='input[type=range]::-webkit-slider-thumb{background:'+c+';box-shadow:0 0 8px '+c+';}'; }
+
+function renderUI(s){
+  var c=C(s);
+  document.getElementById('sVal').textContent=s.toFixed(1);
+  document.getElementById('sVal').style.color=c;
+  thumb(c);
+  var pct=((s-0.1)/2.9)*100;
+  document.getElementById('slider').style.background='linear-gradient(to right,'+c+' '+pct+'%,rgba(255,255,255,.1) '+pct+'%)';
+  var b=document.getElementById('sBadge');
+  if(s<1.0){b.className='badge slow';b.textContent='减速模式';}
+  else if(s===1.0){b.className='badge norm';b.textContent='正常速度';}
+  else if(s<=2.0){b.className='badge fast';b.textContent='加速模式';}
+  else{b.className='badge xfast';b.textContent='极速模式';}
+  var map={p01:0.1,p05:0.5,p10:1.0,p20:2.0,p30:3.0};
+  Object.keys(map).forEach(function(id){
+    var btn=document.getElementById(id),active=Math.abs(map[id]-s)<0.005;
+    btn.classList.toggle('active',active);
+    btn.style.background=active?c:''; btn.style.color=active?'#000':''; btn.style.borderColor=active?'transparent':'';
+  });
+  document.getElementById('sfps').textContent=Math.round(24*s)+' fps';
+}
+
+function setSt(lv,msg){document.getElementById('sdot').className='sdot '+(lv||'idle');document.getElementById('stxt').textContent=msg;}
+
+function showErr(msg){
+  var b=document.getElementById('errBox'); b.style.display='flex';
+  document.getElementById('errMsg').textContent=msg;
+}
+function hideErr(){document.getElementById('errBox').style.display='none';}
+
+function applySpeed(speed,force){
+  _lastSpeed=speed; renderUI(speed); hideErr();
+  clearTimeout(_debounce);
+  _debounce=setTimeout(function(){
+    if(_applying&&!force)return;
+    _applying=true;
+    setSt('busy',speed!==1.0?'正在应用（首次约需10s编译…）':'正在恢复…');
+    if(!api){setSt('err','electronAPI未挂载');_applying=false;return;}
+    api.setGameSpeed(speed).then(function(r){
+      _applying=false;
+      if(!r){setSt('err','IPC无响应');return;}
+      if(r.ok){
+        hideErr();
+        if(r.method==='normal') setSt('ok','已恢复正常速度');
+        else setSt('ok','SpeedHook生效 · timeGetTime×'+speed.toFixed(1)+' · PID='+r.pid);
+      } else {
+        var e=r.error||'未知错误';
+        // ── 静默吸收 Reload 竞态导致的管道错误 ─────────────────────────────
+        // 当用户在 200ms 防抖窗口内同时触发刷新时，主进程已静默返回 normal，
+        // 但极少数情况下仍可能有过时的 pipe ENOENT 错误抵达渲染进程。
+        // 此类错误对用户无意义（游戏正在刷新），不显示红色错误框。
+        if(e.indexOf('ENOENT')>=0||e.indexOf('pipe错误')>=0){
+          setSt('ok','游戏已刷新 · 已恢复正常速度');
+          hideErr();
+          return;
+        }
+        showErr(e);
+        if(e.includes('winmm.dll not loaded'))
+          setSt('warn','Flash进程未加载winmm · 已尝试渲染进程 → 查看详情');
+        else if(e.includes('PID检测失败')||e.includes('PID=null')||e.includes('ppapi=0'))
+          setSt('warn','进程未就绪 · 请等游戏完全加载后重试');
+        else if(e.includes('守护进程')||e.includes('daemon'))
+          setSt('err','守护进程未就绪 · 点重试等待编译完成');
+        else if(e.includes('gameWin=null')||e.includes('游戏窗口'))
+          setSt('warn','游戏窗口不存在 · 请先启动游戏');
+        else
+          setSt('err',e.slice(0,60));
+      }
+    }).catch(function(e){_applying=false;setSt('err','IPC:'+e.message);showErr(e.message);});
+  },force?0:200);
+}
+
+function retryApply(){hideErr();setSt('busy','重试中…');applySpeed(_lastSpeed,true);}
+
+document.getElementById('slider').addEventListener('input',function(){applySpeed(parseInt(this.value,10)/10);});
+function setP(s){document.getElementById('slider').value=Math.round(s*10);applySpeed(s);}
+function togglePin(){
+  _pinned=!_pinned;
+  var btn=document.getElementById('btnPin');
+  if(btn){
+    btn.classList.toggle('pinned',_pinned);
+    btn.title=_pinned?'已固定（多窗口共存中，不被点击或切换关闭）':'固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）';
+    try{btn.blur();}catch(_){}
+  }
+  if(api)api.setOverlayPinned(_pinned);
+}
+document.addEventListener('mouseup',function(event){
+  var button=event.target&&event.target.closest?event.target.closest('button'):null;
+  if(button)setTimeout(function(){try{button.blur()}catch(_){}},0);
+});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')window.close();});
+
+(function init(){
+  if(!api){setSt('err','electronAPI未挂载');return;}
+  api.getGameSpeed().then(function(r){
+    if(!r){setSt('warn','状态查询失败');renderUI(1.0);return;}
+    var s=r.speed||1.0; _lastSpeed=s;
+    document.getElementById('slider').value=Math.round(s*10);
+    renderUI(s);
+    if(!r.running){
+      setSt('warn','游戏未运行');
+    } else if(r.hooked){
+      setSt('ok','变速生效中 · ×'+s.toFixed(1));
+    } else if(Math.abs(s-1.0)<0.005){
+      var pidInfo='ppapi='+r.ppPid+' render='+r.rnPid;
+      setSt('ok','游戏运行中 · 正常速度 · '+pidInfo);
+    } else {
+      // 记忆速度不为1，自动重新注入
+      setSt('busy','恢复上次速度设置…');
+      applySpeed(s,true);
+    }
+  }).catch(function(){setSt('warn','状态查询失败');renderUI(1.0);});
+
+  // 监听主进程刷新/清缓存刷新触发的速度重置（面板钉住时实时更新显示）
+  if(api.onSpeedReset){
+    api.onSpeedReset(function(d){
+      // ── 竞态防护：立即取消渲染进程侧所有待发的防抖变速请求 ─────────────
+      // doReload 触发后主进程已杀死 Flash 进程并清除 _speedHookState。
+      // 若此时防抖计时器仍在倒计时，它将向主进程发出对已死亡 Flash PID 的
+      // 变速请求，导致管道 ENOENT 错误或无意义的重新注入流程。
+      // 在收到 speed-reset 推送的第一时间清除计时器，从根源阻断此路径。
+      clearTimeout(_debounce); _debounce=null;
+      var s=(d&&d.speed)||1.0;
+      _lastSpeed=s;
+      document.getElementById('slider').value=Math.round(s*10);
+      renderUI(s);
+      hideErr();
+      setSt('ok','游戏已刷新 · 已恢复正常速度');
+    });
+  }
+})();
+</script>
+</body></html>

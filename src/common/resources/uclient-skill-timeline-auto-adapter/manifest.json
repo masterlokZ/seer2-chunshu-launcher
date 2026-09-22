@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "package": "uclient-skill-timeline-auto-adapter",
+  "generatedAt": "08/29/2026 12:00:00",
+  "payloadFileCount": 21,
+  "payloadBytes": 517918,
+  "files": [
+    {
+      "path": "scripts/Auto-Adapt-UClientSkillTimeline.ps1",
+      "source": "scripts/Auto-Adapt-UClientSkillTimeline.ps1",
+      "bytes": 9409,
+      "sha256": "9A658B259DA002A9D07DF165916F423FC53127862C086E47C686CB7F47DA643F"
+    },
+    {
+      "path": "scripts/Build-4000SkillTimelineOverlay.ps1",
+      "source": "scripts/Build-4000SkillTimelineOverlay.ps1",
+      "bytes": 109762,
+      "sha256": "A948E4EC616829E22A4416AF27EEB623751161FE0A943C12B68C0BF0D4C2AB12"
+    },
+    {
+      "path": "scripts/Validate-UClientLayerSplitCandidate.ps1",
+      "source": "scripts/Validate-UClientLayerSplitCandidate.ps1",
+      "bytes": 14044,
+      "sha256": "44702F259FB5432B581C39586230763E891826C4D49567838BC8F8A6B09F7762"
+    },
+    {
+      "path": "scripts/Fetch-UClientSkillTimelineBundles.js",
+      "source": "scripts/Fetch-UClientSkillTimelineBundles.js",
+      "bytes": 8673,
+      "sha256": "70BC915E0C4BDB16953DDF4EAD782E8D61BD277BA49967B735A6C10482520640"
+    },
+    {
+      "path": "scripts/lib/AtomicFilePair.ps1",
+      "source": "scripts/lib/AtomicFilePair.ps1",
+      "bytes": 2662,
+      "sha256": "25BD196E9F2E1B1D93A5E5F7173E9AA04406CD68D4EBAF67899AA3D28DE4342D"
+    },
+    {
+      "path": "scripts/lib/UClient4000CaptureMotionGate.ps1",
+      "source": "scripts/lib/UClient4000CaptureMotionGate.ps1",
+      "bytes": 7476,
+      "sha256": "93E40AF619EBA6C803EA779AADFB2CC814ABB24FC340C6E6113C10754A4E0B87"
+    },
+    {
+      "path": "scripts/lib/UClient4000CaptureProcessGuard.ps1",
+      "source": "scripts/lib/UClient4000CaptureProcessGuard.ps1",
+      "bytes": 9885,
+      "sha256": "3BD764174FE0E00CD477A96B931C69E70208C651521C37D21FCC21A9B7E9B3CF"
+    },
+    {
+      "path": "scripts/Run-1400837CaptureOffscreen.ps1",
+      "source": "scripts/Run-1400837CaptureOffscreen.ps1",
+      "bytes": 9212,
+      "sha256": "A3FA99F6EEB9B71EC4F0E6E31E460D35BD1A2A3D11F91BC997DAE90BCD82081A"
+    },
+    {
+      "path": "scripts/Run-UClientSkillTimelineCaptureOffscreen.ps1",
+      "source": "scripts/Run-UClientSkillTimelineCaptureOffscreen.ps1",
+      "bytes": 958,
+      "sha256": "208981CD4D154772806CA60766DB947C0D2EB0F2F07AE177ABF94C86FE46C91F"
+    },
+    {
+      "path": "scripts/Stage-1400837CaptureRuntime.ps1",
+      "source": "scripts/Stage-1400837CaptureRuntime.ps1",
+      "bytes": 6612,
+      "sha256": "71901DD79F14B2B818AF4850FA036EC5E41ED6CE3A793DDFA727B5B7959757E0"
+    },
+    {
+      "path": "scripts/Stage-UClientSkillTimelineCaptureRuntime.ps1",
+      "source": "scripts/Stage-UClientSkillTimelineCaptureRuntime.ps1",
+      "bytes": 736,
+      "sha256": "65110B250546ACF5C24A643E3CBF126D76511ACFB2450B6869FAC93BB099E61F"
+    },
+    {
+      "path": "scripts/Stage-UClientSkillTimelineProfile.ps1",
+      "source": "scripts/Stage-UClientSkillTimelineProfile.ps1",
+      "bytes": 12291,
+      "sha256": "58229A6162E1DF903D57E438C493E4310A9BD53CA2045EB109BFC157EB137B7E"
+    },
+    {
+      "path": "scripts/Summarize-UClientPlayableTimelines.py",
+      "source": "scripts/Summarize-UClientPlayableTimelines.py",
+      "bytes": 24047,
+      "sha256": "9EF7509BB5475BC1AB48133517D6DEC35CEEF21192EEC10E4F714BA6B65EC49E"
+    },
+    {
+      "path": "scripts/Validate-4000CaptureEvidence.ps1",
+      "source": "scripts/Validate-4000CaptureEvidence.ps1",
+      "bytes": 33821,
+      "sha256": "CC4BF7648E7E6382B5C6373431B6AACEF4BC2642F5144CB1E598984A53F56DEA"
+    },
+    {
+      "path": "scripts/Validate-UClientCaptureBackground.py",
+      "source": "scripts/Validate-UClientCaptureBackground.py",
+      "bytes": 22393,
+      "sha256": "F55F6168CD22106368680C655557021DB48718F54876E0F4DC691F2209748B90"
+    },
+    {
+      "path": "src/common/modules/uclient-resource-catalog.js",
+      "source": "src/common/modules/uclient-resource-catalog.js",
+      "bytes": 14319,
+      "sha256": "3AB8671C31A8983806873F6914E49B68C18A07441749E5200F3E9A01DE0745C5"
+    },
+    {
+      "path": "src/common/resources/uclient-skill-timeline-overlays.json",
+      "source": "src/common/resources/uclient-skill-timeline-overlays.json",
+      "bytes": 50594,
+      "sha256": "9179B7FA1AC4C357C3F48C4489C9AAEB769CBD80FC6B9D2484013995A6E7BCBE"
+    },
+    {
+      "path": "tools/4000-uclient-capture-plugin/bin/Release/net6.0/Seer4000TimelineCapture.dll",
+      "source": "tools/4000-uclient-capture-plugin/bin/Release/net6.0/Seer4000TimelineCapture.dll",
+      "bytes": 98816,
+      "sha256": "8AA86009AE1A46EEE7FCD0E25AAA8FB5189BB7DD6578D7A0636BEB90FDE9B8BA"
+    },
+    {
+      "path": "scripts/lib/UClientCaptureOfficialTimeline.ps1",
+      "source": "scripts/lib/UClientCaptureOfficialTimeline.ps1",
+      "bytes": 4863,
+      "sha256": "69402F0457CA0CC7D36ACE9AAA5196A427F610E470FE326A797E5FD9BF773745"
+    },
+    {
+      "path": "scripts/Derive-UClientBackdropWindows.py",
+      "source": "scripts/Derive-UClientBackdropWindows.py",
+      "bytes": 13907,
+      "sha256": "69833F288E5395FD898D4F82005A4E629714DA5A232797A973C4A157738F07D4"
+    },
+    {
+      "path": "scripts/Validate-UClientDualChannelGate.py",
+      "source": "scripts/Validate-UClientDualChannelGate.py",
+      "bytes": 63438,
+      "sha256": "28FB4C432FF6F848881C767B9A7C879EE3C32C7BB8C65ADEEBB3DC7858F64A85"
+    }
+  ],
+  "externalToolingNotBundled": [
+    "Unity player/runtime",
+    "Apache Flex SDK",
+    "Java runtime",
+    "ffmpeg",
+    "Node.js",
+    "Python/Pillow/UnityPy"
+  ]
+}

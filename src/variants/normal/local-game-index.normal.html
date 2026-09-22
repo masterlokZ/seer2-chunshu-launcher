@@ -1,0 +1,87 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+    <meta name="referrer" content="always">
+    <title>赛尔号2</title>
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #000000;
+        }
+        #__flash_center {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            z-index: 0;
+        }
+        #toolbar, #nav, #menu, .toolbar, .menu, .nav, header {
+            position: relative;
+            z-index: 9999;
+        }
+        #flashContentWrap, #flashbox, #flashContent {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: visible;
+        }
+        embed#Client, embed[type*="flash"], object[type*="flash"] {
+            transform-origin: center center;
+            will-change: transform;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            transition: transform 0.08s cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+    </style>
+</head>
+<body>
+    <div id="__flash_center">
+        <div class="c_wrap" id="flashContentWrap">
+            <div id="flashbox">
+                <div id="flashContent">
+                    <!--
+                      flash-not-support.html iframe 已移除:
+                      - iframe src="static/flash-not-support.html" 是 404,
+                        浏览器会基于当前 iframe URL 连续重试并在路径上叠加
+                        /static/ 前缀(/seer2/static/static/static/...),
+                        每次重试都让 core-net / protocol 拦截器做一次 stream
+                        操作。在 ia32 Electron (WOW64) 首次冷启动下,这些 stream
+                        回调与 GPU / Flash attach 期间的 libuv handle 操作并发,
+                        触发 EXCEPTION_ACCESS_VIOLATION 使进程静默崩溃。
+                      - SWFObject 会在下方 `so.write("flashContent")` 把 Flash
+                        embed 渲染到本 div,不依赖 iframe 作为占位。
+                      - 用户永远看不到 flash-not-support 的 fallback 页(原版本
+                        只是在 Flash 未就绪的极短瞬间作为占位),对体验无影响。
+                      - 与 background 变体同步修复。
+                    -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/swfobject.js"></script>
+    <script type="text/javascript">
+        var autoTimes = new Date();
+        var flashUrl = "http://" + location.host + "/Client.swf";
+        var so = new SWFObject(flashUrl, "Client", "1200", "660", "10", "#FFFFFF");
+        so.addParam("menu", "false");
+        so.addParam("wmode", "window");
+        so.addParam("allowFullScreen", "true");
+        so.addParam("allowScriptAccess", "always");
+        so.addParam("allowFullScreenInteractive", "true");
+        so.addParam("quality", "low");
+        so.write("flashContent");
+
+    </script>
+    <script type="text/javascript" src="//webres.61.com/seer2/site/style/js/gameSeer2.js"></script>
+</body>
+</html>

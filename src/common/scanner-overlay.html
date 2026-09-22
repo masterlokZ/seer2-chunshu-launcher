@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<title>内存扫描器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0e1a; --bdr:rgba(0,212,255,.12);
+  --txt:#e2e8f0; --dim:#64748b; --pri:#00d4ff;
+  --sc:#22c55e; --sc2:#16a34a; --red:#ef4444;
+}
+/* 工具型 overlay: 默认整窗禁选, 防鼠标飘移产生文字高亮 */
+html, body { user-select: none; -webkit-user-select: none; }
+/* 输入控件保留可输入 / 可选中 (覆盖父元素禁选) */
+input, textarea, select { user-select: text; -webkit-user-select: text; }
+html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-family:'Microsoft YaHei','Segoe UI',sans-serif;font-size:11px;overflow:hidden;display:flex;flex-direction:column;}
+/* Title bar (drag area) */
+.titlebar{height:32px;background:rgba(0,212,255,.06);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;padding:0 10px;flex-shrink:0;-webkit-app-region:drag;user-select:none;}
+.titlebar-ico{font-size:13px;color:var(--sc);}
+.titlebar-txt{font-size:11px;font-weight:600;color:var(--pri);letter-spacing:1px;flex:1;}
+.titlebar-pid{font-size:9px;font-family:'Consolas',monospace;color:var(--dim);}
+.titlebar-min{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:rgba(100,116,139,.10);color:var(--dim);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.6;transition:all .18s;}.titlebar-min:hover{background:rgba(100,116,139,.25);opacity:1;color:var(--txt);}.titlebar-close{-webkit-app-region:no-drag;width:22px;height:22px;border:none;border-radius:4px;background:rgba(239,68,68,.08);color:var(--red);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.titlebar-close:hover{background:rgba(239,68,68,.22);}
+/* Scanner top bar */
+.sc-top{padding:7px 10px;display:flex;align-items:center;gap:7px;background:rgba(13,20,38,.8);border-bottom:1px solid rgba(34,197,94,.1);flex-shrink:0;}
+.sc-top label{font-size:10px;color:var(--dim);white-space:nowrap;}
+.sc-val-input{height:28px;flex:1;max-width:150px;background:rgba(0,0,0,.4);border:1px solid rgba(34,197,94,.25);border-radius:6px;color:var(--txt);font-size:13px;font-family:'Consolas',monospace;text-align:center;padding:0 6px;}
+.sc-val-input:focus{outline:none;border-color:var(--sc);}
+select{height:28px;background:rgba(0,0,0,.4);border:1px solid rgba(34,197,94,.2);border-radius:6px;color:var(--txt);font-size:10px;padding:0 6px;}
+.sc-btn{height:28px;padding:0 12px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .18s;white-space:nowrap;}
+.sc-btn.new{background:linear-gradient(135deg,var(--sc2),var(--sc));color:#fff;box-shadow:0 0 8px rgba(34,197,94,.25);}
+.sc-btn.new:hover{filter:brightness(1.1);}
+.sc-btn.next{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22);color:var(--sc);}
+.sc-btn.next:hover{background:rgba(34,197,94,.15);}
+.sc-btn.next:disabled{opacity:.35;cursor:not-allowed;}
+.sc-btn.undo{background:rgba(100,116,139,.08);border:1px solid rgba(100,116,139,.2);color:var(--dim);}
+.sc-btn.undo:hover{background:rgba(100,116,139,.14);}
+.sc-count{font-size:9.5px;color:var(--dim);margin-left:auto;white-space:nowrap;}
+.sc-count span{color:var(--sc);font-family:'Consolas',monospace;font-weight:600;}
+/* Proc info */
+.sc-procinfo{padding:2px 10px;font-size:9px;color:var(--dim);background:rgba(0,0,0,.3);border-bottom:1px solid rgba(34,197,94,.06);min-height:16px;flex-shrink:0;}
+/* Sel bar */
+.sc-sel-bar{padding:4px 8px;background:rgba(34,197,94,.06);border-bottom:1px solid rgba(34,197,94,.14);display:flex;align-items:center;gap:6px;font-size:10px;flex-shrink:0;}
+.sc-sel-count{color:var(--sc);font-weight:700;font-family:'Consolas',monospace;min-width:24px;}
+.sc-sel-input{height:24px;width:100px;background:rgba(0,0,0,.5);border:1px solid rgba(34,197,94,.3);border-radius:5px;color:var(--txt);font-size:12px;font-family:'Consolas',monospace;text-align:center;padding:0 5px;}
+.sc-sel-input:focus{outline:none;border-color:var(--sc);}
+.sc-sel-btn{height:24px;padding:0 10px;border:none;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
+.sc-sel-btn.write{background:linear-gradient(135deg,var(--sc2),var(--sc));color:#fff;}
+.sc-sel-btn.write:hover{filter:brightness(1.12);}
+.sc-sel-btn.write:disabled{opacity:.35;cursor:not-allowed;}
+.sc-sel-btn.sel-all{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22);color:var(--sc);}
+.sc-sel-btn.sel-all:hover{background:rgba(34,197,94,.15);}
+.sc-sel-btn.desel{background:rgba(100,116,139,.08);border:1px solid rgba(100,116,139,.2);color:var(--dim);}
+.sc-sel-btn.desel:hover{background:rgba(100,116,139,.14);}
+.sc-sel-btn.invert{background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.22);color:#c084fc;}
+.sc-sel-btn.invert:hover:not(:disabled){background:rgba(168,85,247,.15);}
+.sc-sel-btn.invert:disabled{opacity:.3;cursor:not-allowed;}
+.sc-sel-divider{width:1px;height:16px;background:rgba(255,255,255,.08);}
+.sc-chk{width:12px;height:12px;accent-color:var(--sc);cursor:pointer;}
+/* Main area */
+.sc-main{flex:1;display:flex;overflow:hidden;}
+.sc-results{flex:1;overflow-y:auto;border-right:1px solid rgba(34,197,94,.08);user-select:none;-webkit-user-select:none;}
+.sc-results-hdr,.sc-row{display:grid;grid-template-columns:24px 28px 1fr 80px 80px 58px;font-size:10px;align-items:center;}
+.sc-results-hdr{padding:4px 8px;background:rgba(34,197,94,.05);border-bottom:1px solid rgba(34,197,94,.1);color:var(--dim);font-weight:600;letter-spacing:1px;position:sticky;top:0;z-index:1;}
+.sc-row{padding:3px 8px;border-bottom:1px solid rgba(255,255,255,.025);cursor:pointer;transition:background .12s;}
+.sc-row:hover{background:rgba(34,197,94,.06);}
+.sc-row.selected{background:rgba(34,197,94,.09);border-left:2px solid var(--sc);}
+.sc-row.pinned{background:rgba(34,197,94,.07);}
+.sc-addr{font-family:'Consolas',monospace;font-size:10px;color:var(--pri);}
+.sc-curval{font-family:'Consolas',monospace;font-size:11px;font-weight:600;color:var(--txt);}
+.sc-pin-btn{background:none;border:1px solid rgba(34,197,94,.2);border-radius:4px;color:var(--dim);font-size:9px;cursor:pointer;padding:1px 4px;transition:all .15s;}
+.sc-pin-btn:hover{border-color:var(--sc);color:var(--sc);}
+.sc-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);font-size:11px;flex-direction:column;gap:8px;}
+.sc-scanning{color:var(--sc);font-size:12px;display:flex;align-items:center;gap:8px;}
+/* Pinned panel */
+.sc-pinned{width:200px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;}
+.sc-pin-header-row{display:flex;align-items:center;justify-content:space-between;padding:3px 8px;background:rgba(34,197,94,.05);border-bottom:1px solid rgba(34,197,94,.1);}
+.sc-pin-title{font-size:9px;font-weight:600;letter-spacing:2px;color:var(--sc);text-transform:uppercase;}
+.sc-pin-clear{background:none;border:none;color:var(--dim);font-size:10px;cursor:pointer;padding:2px 4px;border-radius:3px;}
+.sc-pin-clear:hover{color:var(--red);}
+.sc-pinned-list{flex:1;overflow-y:auto;padding:4px;}
+.sc-pin-item{padding:5px 7px;margin-bottom:4px;background:rgba(34,197,94,.04);border:1px solid rgba(34,197,94,.12);border-radius:6px;}
+.sc-pin-addr{font-family:'Consolas',monospace;font-size:9px;color:var(--pri);margin-bottom:4px;}
+.sc-pin-row{display:flex;gap:4px;align-items:center;}
+.sc-pin-valbox{flex:1;height:22px;background:rgba(0,0,0,.4);border:1px solid rgba(34,197,94,.2);border-radius:4px;color:var(--txt);font-size:11px;font-family:'Consolas',monospace;text-align:center;padding:0 3px;}
+.sc-pin-valbox:focus{outline:none;border-color:var(--sc);}
+.sc-pin-write{height:22px;padding:0 7px;border:none;border-radius:4px;background:var(--sc2);color:#fff;font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;}
+.sc-pin-write:hover{background:var(--sc);}
+.sc-pin-del{height:22px;width:22px;border:none;border-radius:4px;background:rgba(239,68,68,.08);color:var(--red);font-size:12px;cursor:pointer;}
+.sc-pin-del:hover{background:rgba(239,68,68,.2);}
+.sc-pin-empty{padding:16px 8px;text-align:center;color:var(--dim);font-size:10px;line-height:1.7;}
+.sc-pin-bulk{padding:5px 7px;background:rgba(34,197,94,.04);border-top:1px solid rgba(34,197,94,.1);display:flex;flex-direction:column;gap:4px;flex-shrink:0;}
+.sc-pin-bulk-lbl{font-size:8.5px;color:var(--dim);letter-spacing:1px;}
+.sc-pin-bulk-row{display:flex;gap:4px;}
+.sc-pin-bulk-input{flex:1;height:22px;background:rgba(0,0,0,.4);border:1px solid rgba(34,197,94,.2);border-radius:4px;color:var(--txt);font-size:11px;font-family:'Consolas',monospace;text-align:center;padding:0 3px;}
+.sc-pin-bulk-input:focus{outline:none;border-color:var(--sc);}
+.sc-pin-bulk-btn{height:22px;padding:0 8px;border:none;border-radius:4px;background:var(--sc2);color:#fff;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;}
+.sc-pin-bulk-btn:hover{background:var(--sc);}
+/* Toast */
+.toast{position:fixed;bottom:8px;right:10px;padding:6px 11px;background:rgba(13,20,38,.97);border:1px solid var(--bdr);border-radius:7px;font-size:10px;color:var(--txt);max-width:200px;transform:translateY(40px);opacity:0;transition:all .24s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{border-color:rgba(34,197,94,.4);}
+.toast.bad{border-color:rgba(239,68,68,.4);}
+.toast.sc{border-color:rgba(34,197,94,.4);}
+/* Safe write checkbox */
+.safe-chk-label{display:flex;align-items:center;gap:3px;font-size:9px;color:#f59e0b;cursor:pointer;white-space:nowrap;}
+/* Status bar */
+.sbar{height:24px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;background:rgba(10,14,26,.85);border-top:1px solid var(--bdr);font-size:9px;color:var(--dim);flex-shrink:0;}
+@keyframes rot{to{transform:rotate(360deg);}}
+.spin{display:inline-block;animation:rot .9s linear infinite;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:rgba(0,212,255,.18);border-radius:2px;}
+
+button:focus{outline:none;}
+.titlebar-pin{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:transparent;color:var(--muted,#7e93a8);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.5;transition:all .18s;outline:none;}
+.titlebar-pin:hover{background:rgba(255,255,255,.1);opacity:.85;}
+.titlebar-pin.pinned{color:#f59e0b;opacity:1;outline:none;}
+.titlebar-pin:focus{outline:none;}
+</style>
+</head>
+<body>
+
+<!-- Title bar -->
+<div class="titlebar">
+  <span class="titlebar-ico">&#129504;</span>
+  <span class="titlebar-txt">&#20869;&#23384;&#25195;&#25551;&#22120;</span>
+  <span class="titlebar-pid" id="titlePid">&#26410;&#36816;&#34892;</span>
+  <button class="titlebar-pin" id="btnPin" onclick="toggleTitlebarPin()" title="固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）">📌</button>
+  <button class="titlebar-min" onclick="if(window.electronAPI)window.electronAPI.minimizeSelf()" title="最小化到任务栏">─</button>
+  <button class="titlebar-close" id="btnClose" title="&#20851;&#23383;">&#10005;</button>
+</div>
+
+<!-- Top controls -->
+<div class="sc-top">
+  <label>&#25968;&#20540;&#65306;</label>
+  <input class="sc-val-input" id="scValInput" type="number" placeholder="&#25628;&#32034;&#20540;">
+  <label>&#31867;&#22411;&#65306;</label>
+  <select id="scType">
+    <option value="int32" selected>Int32 (4字节整数)</option>
+    <option value="all">全类型扫描 (推荐)</option>
+    <option value="double">Double (8字节浮点)</option>
+    <option value="float">Float (4字节浮点)</option>
+  </select>
+  <button class="sc-btn new" id="btnScanNew">&#26032;&#24314;&#25195;&#25551;</button>
+  <button class="sc-btn next" id="btnScanNext" disabled>&#19979;&#19968;&#27425;&#25195;&#25551;</button>
+  <button class="sc-btn undo" id="btnScanReset">&#37325;&#32622;</button>
+  <span class="sc-count">找到 <span id="scCount">0</span> 个结果
+    <button id="btnRefreshVals" onclick="manualRefreshCurrentValues()" title="刷新当前值" style="margin-left:6px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);color:#4ade80;border-radius:3px;padding:0 5px;font-size:10px;cursor:pointer;line-height:16px;">↻</button>
+  </span>
+</div>
+
+<!-- Proc info -->
+<div class="sc-procinfo" id="scProcInfo"></div>
+
+<!-- Selection toolbar -->
+<div class="sc-sel-bar" id="scSelBar">
+  <span style="font-size:9px;color:var(--dim);">&#24050;&#36873;&#25321;:</span>
+  <span class="sc-sel-count" id="scSelCount">0</span>
+  <span style="font-size:9px;color:var(--dim);">&#20491;</span>
+  <div class="sc-sel-divider"></div>
+  <button class="sc-sel-btn sel-all" onclick="selectAll()">&#20840;&#36873;</button>
+  <button class="sc-sel-btn desel" onclick="deselectAll()">&#21462;&#28040;</button>
+  <button class="sc-sel-btn invert" id="btnInvert" onclick="invertSelection()" title="反转当前选中状态">&#21453;&#36873;</button>
+  <div class="sc-sel-divider"></div>
+  <span style="font-size:9px;color:var(--dim);">&#25913;&#20026;:</span>
+  <input class="sc-sel-input" id="scBulkVal" type="number" placeholder="&#36755;&#20837;&#26032;&#20540;">
+  <button class="sc-sel-btn write" id="btnBulkWrite" onclick="doBulkWrite()">&#21319;&#21495;&#20889;&#20837;&#25152;&#36873;</button>
+  <label class="safe-chk-label" title="&#23433;&#20840;&#27169;&#24335;&#65306;&#27599;10&#20491;&#20889;&#19968;&#25209;&#65292;&#26816;&#27979;&#28216;&#25103;&#26159;&#21542;&#20572;&#27963;">
+    <input type="checkbox" id="chkSafeWrite" checked>
+    &#9749;&#23433;&#20840;
+  </label>
+  <div class="sc-sel-divider"></div>
+  <button class="sc-sel-btn sel-all" style="font-size:9px;" onclick="pinSelected()">&#38145;&#23450;&#25152;&#36873;</button>
+</div>
+
+<!-- Main panel -->
+<div class="sc-main">
+  <!-- Results -->
+  <div class="sc-results" id="scResults">
+    <div class="sc-results-hdr">
+      <input type="checkbox" class="sc-chk" id="chkAll" onclick="toggleSelectAll(this.checked)">
+      <span>#</span><span>地址</span><span>当前值</span><span>首次值</span><span>操作</span>
+    </div>
+    <div id="scResultsBody">
+      <div class="sc-empty">
+        <span>&#8593; &#36755;&#20837;&#25968;&#20540;&#21518;&#28857;&#20987;&#8220;&#26032;&#24314;&#25195;&#25551;&#8221;</span>
+        <span style="font-size:9px;color:var(--dim);">&#38656;&#35201;&#20808;&#22312;&#28216;&#25103;&#20013;&#25171;&#24320;</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pinned panel -->
+  <div class="sc-pinned">
+    <div class="sc-pin-header-row">
+      <span class="sc-pin-title">&#38145;&#23450;&#22320;&#22336;</span>
+      <button class="sc-pin-clear" onclick="clearAllPins()">&#128465; &#28165;&#31354;</button>
+    </div>
+    <div class="sc-pinned-list" id="scPinnedList">
+      <div class="sc-pin-empty">&#28857;&#20987;&#32467;&#26524;&#20013;&#30340;&quot;&#38145;&#23450;&quot;<br>&#25110;&#20351;&#29992;&quot;&#38145;&#23450;&#25152;&#36873;&quot;</div>
+    </div>
+    <div class="sc-pin-bulk">
+      <div class="sc-pin-bulk-lbl">&#25209;&#37327;&#20889;&#20837;&#25152;&#26377;&#38145;&#23450;</div>
+      <div class="sc-pin-bulk-row">
+        <input class="sc-pin-bulk-input" id="pinBulkVal" type="number" placeholder="&#26032;&#20540;">
+        <button class="sc-pin-bulk-btn" onclick="doPinBulkWrite()">&#20840;&#20889;&#20837;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="sbar">
+  <span id="sbarLeft">&#27880;&#24819;&#65306;&#20849;&#20139;&#21103;&#31243;&#22120;&#19982;&#20027;&#31383;&#21475;</span>
+  <span id="sbarRight"></span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// 全局错误捕获 — 任何脚本异常都不应让 UI 假死/按钮失效
+// (上一次回归: setProcInfo 内嵌入散落 pids.forEach 导致 ReferenceError, 后续监听器全部失效)
+// 全部走 toast (非阻塞), 不再覆盖整个 procInfo 区导致后续无法 setProcInfo。
+window.addEventListener('error', function(ev) {
+  try {
+    var msg = (ev && ev.message) ? String(ev.message).slice(0, 200) : 'unknown';
+    var src = (ev && ev.filename) ? String(ev.filename).split(/[\\/]/).pop() : '';
+    var ln  = (ev && ev.lineno)   ? ev.lineno : 0;
+    console.error('[SCANNER-UI ERROR]', msg, src + ':' + ln);
+    // 仅在 toast 函数已定义时调用 (脚本顶部就发生错误的极端情形下不存在)
+    if (typeof toast === 'function') {
+      toast('⚠️ UI 错误: ' + msg + ' @ ' + src + ':' + ln, 'bad');
+    } else {
+      var el = document.getElementById('scProcInfo');
+      if (el) el.innerHTML = '<span style="color:#ef4444;font-weight:600;">⚠️ UI 脚本错误: ' + msg + ' @ ' + src + ':' + ln + '</span>';
+    }
+    // 兜底: 任何错误后都让扫描按钮恢复可点 (防止 setScanState 卡死)
+    try {
+      var nb  = document.getElementById('btnScanNew');
+      var nxt = document.getElementById('btnScanNext');
+      if (nb)  { nb.disabled = false;  nb.innerHTML = '新建扫描'; }
+      if (nxt) { nxt.disabled = (typeof scanAddresses === 'undefined' || scanAddresses.length === 0); }
+      var bw = document.getElementById('btnBulkWrite');
+      if (bw) { bw.disabled = false; bw.innerHTML = '升号写入所选'; }
+    } catch(_) {}
+  } catch (_) {}
+});
+window.addEventListener('unhandledrejection', function(ev) {
+  try {
+    var reason = ev && ev.reason ? String(ev.reason).slice(0, 200) : 'unknown';
+    console.error('[SCANNER-UI REJECT]', reason);
+    if (typeof toast === 'function') {
+      toast('⚠️ Promise 拒绝: ' + reason, 'bad');
+    } else {
+      var el = document.getElementById('scProcInfo');
+      if (el && el.innerHTML.indexOf('UI 脚本错误') === -1) {
+        el.innerHTML = '<span style="color:#ef4444;font-weight:600;">⚠️ Promise 拒绝: ' + reason + '</span>';
+      }
+    }
+    // 兜底: 让扫描按钮恢复可点
+    try {
+      var nb  = document.getElementById('btnScanNew');
+      var nxt = document.getElementById('btnScanNext');
+      if (nb)  { nb.disabled = false;  nb.innerHTML = '新建扫描'; }
+      if (nxt) { nxt.disabled = (typeof scanAddresses === 'undefined' || scanAddresses.length === 0); }
+      var bw = document.getElementById('btnBulkWrite');
+      if (bw) { bw.disabled = false; bw.innerHTML = '升号写入所选'; }
+    } catch(_) {}
+  } catch (_) {}
+});
+
+var api = window.electronAPI;
+var currentRenderPid = null;
+
+// Scanner state
+var scanAddresses  = [];
+var firstValues    = {};
+var currentValues  = {};   // live-read values, updated after each render
+var pinnedAddrs    = [];
+var selectedAddrs  = {};
+var lastClickedIndex = -1;
+var knownSafePids  = {};
+
+// ── Live current value refresh ─────────────────────────────────────────
+// Throttle flag: prevent concurrent refresh calls
+var _refreshingCurVals = false;
+
+// Only auto-refresh when results are few enough to be fast.
+// With thousands of results, each read is a separate IPC+PowerShell call —
+// doing 500 reads/2s would saturate the CPU. Manual refresh button available instead.
+var AUTO_REFRESH_LIMIT = 30;
+
+async function refreshCurrentValues() {
+  if (_refreshingCurVals) return;
+  if (!scanAddresses || scanAddresses.length === 0) return;
+  // CPU guard: don't auto-refresh large result sets
+  if (scanAddresses.length > AUTO_REFRESH_LIMIT) return;
+  _refreshingCurVals = true;
+  var show = scanAddresses.slice(0, AUTO_REFRESH_LIMIT);
+  try {
+    for (var i = 0; i < show.length; i++) {
+      var addr = show[i];
+      try {
+        var r = await api.memRead(addr);
+        if (r && r.ok && r.value !== undefined) {
+          currentValues[addr] = r.value;
+          var cell = document.getElementById('curval-' + i);
+          if (cell) cell.textContent = r.value;
+        }
+      } catch(e) {}
+    }
+  } finally {
+    _refreshingCurVals = false;
+  }
+}
+
+// Manual refresh — reads all visible rows regardless of count
+async function manualRefreshCurrentValues() {
+  if (_refreshingCurVals) return;
+  _refreshingCurVals = true;
+  var show = scanAddresses.slice(0, 500);
+  var btn = document.getElementById('btnRefreshVals');
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+  try {
+    for (var i = 0; i < show.length; i++) {
+      var addr = show[i];
+      try {
+        var r = await api.memRead(addr);
+        if (r && r.ok && r.value !== undefined) {
+          currentValues[addr] = r.value;
+          var cell = document.getElementById('curval-' + i);
+          if (cell) cell.textContent = r.value;
+        }
+      } catch(e) {}
+      if (i % 10 === 9) await new Promise(function(res){ setTimeout(res, 0); });
+    }
+  } finally {
+    _refreshingCurVals = false;
+    if (btn) { btn.textContent = '↻'; btn.disabled = false; }
+  }
+}
+
+// Auto-refresh every 2s, only for small result sets, only when visible
+setInterval(function() {
+  if (document.visibilityState === 'hidden') return;
+  if (scanAddresses.length > 0 && scanAddresses.length <= AUTO_REFRESH_LIMIT) {
+    refreshCurrentValues();
+  }
+}, 2000);
+
+
+// ── Toast ─────────────────────────────────────────────────────────────
+var _toastTimer = null;
+function toast(msg, cls) {
+  var el = document.getElementById('toast');
+  el.innerHTML = msg;
+  el.className = 'toast show' + (cls ? ' ' + cls : '');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(function() { el.className = 'toast'; }, 2800);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────
+function getSelectedList() {
+  return Object.keys(selectedAddrs);
+}
+function updateSelCount() {
+  var n = getSelectedList().length;
+  document.getElementById('scSelCount').textContent = n;
+  // 反选按钮：仅在"有多于1个结果"且"未全选也未全不选"时可用
+  // （全不选时用全选更直接；已全选时反选等于取消，用取消更直接）
+  var btnInvert = document.getElementById('btnInvert');
+  if (btnInvert) {
+    var total = Math.min(scanAddresses.length, 500);
+    btnInvert.disabled = (total <= 1 || n === 0 || n >= total);
+  }
+}
+function invertSelection() {
+  var shown = scanAddresses.slice(0, 500);
+  if (!shown.length) return;
+  var newSel = {};
+  for (var i = 0; i < shown.length; i++) {
+    if (!selectedAddrs[shown[i]]) newSel[shown[i]] = true;
+    // 已选中的地址不加入 newSel，即被反选掉
+  }
+  selectedAddrs = newSel;
+  var selCount = getSelectedList().length;
+  var chkAll = document.getElementById('chkAll');
+  if (chkAll) chkAll.checked = (shown.length > 0 && selCount >= shown.length);
+  updateSelCount();
+  renderResults(false);
+}
+function selectAll() {
+  var shown = scanAddresses.slice(0, 500);
+  selectedAddrs = {};
+  for (var i = 0; i < shown.length; i++) selectedAddrs[shown[i]] = true;
+  updateSelCount();
+  var chkAll = document.getElementById('chkAll');
+  if (chkAll) chkAll.checked = (shown.length > 0);
+  renderResults(false);
+}
+function deselectAll() {
+  selectedAddrs = {};
+  var chkAll = document.getElementById('chkAll');
+  if (chkAll) chkAll.checked = false;
+  updateSelCount();
+  renderResults(false);
+}
+function toggleSelectAll(checked) {
+  if (checked) selectAll();
+  else deselectAll();
+}
+function syncScanChkAll() {
+  var shown = Math.min(scanAddresses.length, 500);
+  var selCount = getSelectedList().length;
+  var chkAll = document.getElementById('chkAll');
+  if (chkAll) chkAll.checked = (shown > 0 && selCount >= shown);
+}
+function applyScanRange(idx, selected) {
+  var shown = scanAddresses.slice(0, 500);
+  if (lastClickedIndex < 0 || idx < 0 || idx >= shown.length) return false;
+  var from = Math.min(lastClickedIndex, idx);
+  var to   = Math.max(lastClickedIndex, idx);
+  for (var i = from; i <= to; i++) {
+    if (selected) selectedAddrs[shown[i]] = true;
+    else delete selectedAddrs[shown[i]];
+  }
+  return true;
+}
+function handleRowSelect(addr, idx, checked, shiftKey) {
+  if (shiftKey && applyScanRange(idx, checked)) {
+    lastClickedIndex = idx;
+    updateSelCount();
+    syncScanChkAll();
+    renderResults(false);
+    return;
+  }
+  if (checked) selectedAddrs[addr] = true;
+  else delete selectedAddrs[addr];
+  lastClickedIndex = idx;
+  updateSelCount();
+  syncScanChkAll();
+  renderResults(false);
+}
+function toggleRowSelect(addr, checked, shiftKey) {
+  var shown = scanAddresses.slice(0, 500);
+  var idx = shown.indexOf(addr);
+  handleRowSelect(addr, idx, checked, shiftKey);
+}
+function handleRowClick(addr, idx, event) {
+  if (event.target.classList.contains('sc-pin-btn')) return;
+  handleRowSelect(addr, idx, !selectedAddrs[addr], event.shiftKey);
+}
+
+// ── Safe PID helpers ──────────────────────────────────────────────────
+function learnSafePidsFromAddresses(addrs) {
+  if (!addrs || addrs.length === 0) return;
+  addrs.forEach(function(addr) {
+    var parts = addr.split(':');
+    var pidStr = parts[parts.length - 1];
+    if (pidStr && /^\d+$/.test(pidStr)) knownSafePids[pidStr] = true;
+  });
+}
+function filterSafeAddresses(addrs) {
+  if (!addrs || addrs.length === 0) return { safe: [], unsafeCount: 0 };
+  if (Object.keys(knownSafePids).length === 0) return { safe: addrs, unsafeCount: 0 };
+  var safe = [], unsafeCount = 0;
+  addrs.forEach(function(addr) {
+    var parts = addr.split(':');
+    var pidStr = parts[parts.length - 1];
+    if (knownSafePids[pidStr]) safe.push(addr);
+    else unsafeCount++;
+  });
+  return { safe: safe, unsafeCount: unsafeCount };
+}
+
+// ── Proc info ─────────────────────────────────────────────────────────
+function setProcInfo(pids, ppapi) {
+  var el = document.getElementById('scProcInfo');
+  if (!pids || pids.length === 0) { el.textContent = ''; return; }
+  var parts = [];
+  if (ppapi && ppapi.length > 0) {
+    parts.push('<span style="color:#22c55e;">🔥 Flash PPAPI: ' + ppapi.map(function(p){ return p.toString(16).toUpperCase()+'h'; }).join(',') + '</span>');
+  } else {
+    parts.push('<span style="color:#ef4444;font-weight:600;">⛔ 未识别 Flash PPAPI 进程 — 扫描已禁用,请刷新游戏后重试</span>');
+  }
+  pids.forEach(function(info) {
+    var pidHex = (info && typeof info.pid === 'number') ? info.pid.toString(16).toUpperCase() : '?';
+    // 防御: type 可能因 PowerShell 序列化怪事变成对象/null/undefined
+    var rawType = info ? info.type : null;
+    var typLabel;
+    if (typeof rawType === 'string' && rawType) typLabel = rawType;
+    else typLabel = '?';
+    var col = '#94a3b8';
+    if (rawType === 'ppapi') col = '#22c55e';
+    else if (rawType === 'renderer') col = '#0ea5e9';
+    parts.push('<span style="color:' + col + ';">PID ' + pidHex + 'h(' + typLabel + ')</span>');
+  });
+  el.innerHTML = parts.join('  ·  ');
+}
+
+// ── PPAPI 实时状态 (扫描器打开时 / 新建扫描前 调用) ─────────────────────
+var _ppapiVerified = false;
+function refreshPpapiStatus() {
+  try {
+    if (!api || !api.memRefreshPpapi) return Promise.resolve(false);
+  } catch (_) { return Promise.resolve(false); }
+  return api.memRefreshPpapi().then(function(s) {
+    _ppapiVerified = !!(s && s.ppapiPid);
+    try {
+      var el = document.getElementById('scProcInfo');
+      if (el) {
+        if (_ppapiVerified) {
+          if (!el.innerHTML || el.innerHTML.indexOf('Flash PPAPI:') === -1) {
+            el.innerHTML = '<span style="color:#22c55e;">🔥 Flash PPAPI: ' + s.ppapiPid.toString(16).toUpperCase() + 'h (' + s.ppapiPid + ')</span>';
+          }
+        } else {
+          el.innerHTML = '<span style="color:#ef4444;font-weight:600;">⛔ 未识别 Flash PPAPI 进程 — 扫描已禁用,请等待游戏完全加载/刷新游戏/重启启动器后再试</span>';
+        }
+      }
+      // 仅同步扫描相关按钮的 disabled, 不影响窗口控制按钮 (pin/X/最小化)
+      var nb  = document.getElementById('btnScanNew');
+      var nxt = document.getElementById('btnScanNext');
+      if (nb)  nb.disabled  = !_ppapiVerified;
+      if (nxt) nxt.disabled = (!_ppapiVerified) || (scanAddresses.length === 0);
+    } catch (_) {}
+    return _ppapiVerified;
+  }).catch(function() {
+    // IPC 失败也不抛出: 仅显示红色未识别状态, 让 UI 其它按钮保持可用
+    try {
+      var el = document.getElementById('scProcInfo');
+      if (el) el.innerHTML = '<span style="color:#ef4444;font-weight:600;">⛔ 未识别 Flash PPAPI 进程 (IPC 失败)</span>';
+    } catch (_) {}
+    return false;
+  });
+}
+
+// ── Scan state ────────────────────────────────────────────────────────
+function setScanState(scanning, txt) {
+  var nb  = document.getElementById('btnScanNew');
+  var nxt = document.getElementById('btnScanNext');
+  nb.disabled = scanning;
+  if (scanning) {
+    nb.innerHTML = '<span class="spin">◌</span> ' + txt;
+    nxt.disabled = true;
+    document.getElementById('scResultsBody').innerHTML =
+      '<div class="sc-empty"><div class="sc-scanning"><span class="spin">◌</span> ' + txt + '</div></div>';
+  } else {
+    nb.innerHTML = '新建扫描';
+    // Re-enable "下一次扫描" whenever there are results to filter on
+    nxt.disabled = (scanAddresses.length === 0);
+  }
+}
+
+// ── Render results ────────────────────────────────────────────────────
+function addrType(addr) {
+  var parts = addr.split(':');
+  if (parts.length === 3) {
+    if (parts[1] === 'F') return 'Float';
+    if (parts[1] === 'D') return 'Double';
+    return '?';
+  }
+  return 'Int32';
+}
+
+function renderResults(resetScroll) {
+  var body = document.getElementById('scResultsBody');
+  if (scanAddresses.length === 0) {
+    body.innerHTML = '<div class="sc-empty"><span>没有匹配结果</span></div>';
+    return;
+  }
+  var show = scanAddresses.slice(0, 500);
+  var rows = [];
+  for (var i = 0; i < show.length; i++) {
+    var addr = show[i];
+    var isPinned   = (pinnedAddrs.indexOf(addr) !== -1);
+    var isSelected = !!selectedAddrs[addr];
+    var fv = (firstValues[addr] !== undefined) ? firstValues[addr] : '—';
+    // currentValues is populated by refreshCurrentValues(); show '…' until loaded
+    var cv = (currentValues[addr] !== undefined) ? currentValues[addr] : '…';
+    var parts    = addr.split(':');
+    var dispAddr = parts[0];
+    var pidStr   = parts[parts.length - 1];
+    var isSafe   = !pidStr || !!knownSafePids[pidStr];
+    var pidHex   = parseInt(pidStr, 10) ? parseInt(pidStr, 10).toString(16).toUpperCase() : pidStr;
+    var dtype    = addrType(addr);
+    var dtypeColor = dtype === 'Int32' ? '#00d4ff' : dtype === 'Double' ? '#a855f7' : '#f59e0b';
+    var pidTag   = isSafe
+      ? '<span style="font-size:8px;color:#4ade80;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.25);border-radius:3px;padding:0 3px;margin-left:3px;">' + pidHex + 'h</span>'
+      : '<span style="font-size:8px;color:#f87171;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.35);border-radius:3px;padding:0 3px;margin-left:3px;">⚠ ' + pidHex + 'h</span>';
+    var typeTag  = '<span style="font-size:8px;color:' + dtypeColor + ';background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.1);border-radius:3px;padding:0 3px;margin-left:3px;">' + dtype + '</span>';
+    var rowCls = 'sc-row' + (isPinned ? ' pinned' : '') + (isSelected ? ' selected' : '');
+    var chkd = isSelected ? ' checked' : '';
+    var addrEsc = addr.replace(/\\/g, '\\\\').replace(/"/g, '&quot;').replace(/'/g, "&#039;");
+    rows.push(
+      '<div class="' + rowCls + '" data-addr="' + addrEsc + '" data-idx="' + i + '" onclick="handleRowClick(\'' + addrEsc + '\',' + i + ',event)">'
+      + '<input type="checkbox" class="sc-chk"' + chkd + ' onclick="event.stopPropagation();event.preventDefault();handleRowSelect(this.dataset.owner,parseInt(this.dataset.idx,10),!selectedAddrs[this.dataset.owner],event.shiftKey)" data-owner="' + addrEsc + '" data-idx="' + i + '">'
+      + '<span style="color:var(--dim);font-size:9px;">' + (i+1) + '</span>'
+      + '<span class="sc-addr">' + dispAddr + pidTag + typeTag + '</span>'
+      + '<span class="sc-curval" id="curval-' + i + '" style="color:#22c55e;font-weight:600;">' + cv + '</span>'
+      + '<span style="font-size:9px;color:var(--dim);">' + fv + '</span>'
+      + '<button class="sc-pin-btn" data-paddr="' + addrEsc + '" onclick="event.stopPropagation();togglePin(this.dataset.paddr)">' + (isPinned ? '已锁' : '锁定') + '</button>'
+      + '</div>'
+    );
+  }
+  body.innerHTML = rows.join('');
+  if (scanAddresses.length > AUTO_REFRESH_LIMIT) {
+    var hint = scanAddresses.length > 500
+      ? '只显示前500条，共' + scanAddresses.length + '条 — 点击 ↻ 手动刷新当前值'
+      : '结果较多，自动刷新已暂停 — 点击 ↻ 手动刷新当前值';
+    body.innerHTML += '<div class="sc-empty" style="padding:6px 8px;"><span style="font-size:9px;color:#64748b;">' + hint + '</span></div>';
+  }
+  if (resetScroll) {
+    var scr = document.getElementById('scResults');
+    if (scr) scr.scrollTop = 0;
+  }
+  // Refresh current values after render (async, non-blocking)
+  refreshCurrentValues();
+}
+
+// ── Pinned panel ──────────────────────────────────────────────────────
+function togglePin(addr) {
+  var idx = pinnedAddrs.indexOf(addr);
+  if (idx !== -1) pinnedAddrs.splice(idx, 1);
+  else pinnedAddrs.push(addr);
+  renderResults(false);
+  renderPinned();
+}
+function clearAllPins() {
+  pinnedAddrs = [];
+  renderPinned();
+  renderResults(false);
+  toast('已清空所有锁定地址', '');
+}
+function renderPinned() {
+  var list = document.getElementById('scPinnedList');
+  if (pinnedAddrs.length === 0) {
+    list.innerHTML = '<div class="sc-pin-empty">点击结果中的&quot;锁定&quot;<br>或使用&quot;锁定所选&quot;</div>';
+    return;
+  }
+  var items = [];
+  for (var i = 0; i < pinnedAddrs.length; i++) {
+    var addr = pinnedAddrs[i];
+    var addrEsc = addr.replace(/"/g, '&quot;').replace(/'/g, "&#039;");
+    var dispAddr = addr.split(':')[0];
+    var fv = (firstValues[addr] !== undefined) ? firstValues[addr] : '';
+    items.push(
+      '<div class="sc-pin-item">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;">'
+      + '<div class="sc-pin-addr">' + dispAddr + '</div>'
+      + '<button class="sc-pin-del" data-paddr="' + addrEsc + '" onclick="togglePin(this.dataset.paddr)">×</button>'
+      + '</div>'
+      + '<div class="sc-pin-row">'
+      + '<input class="sc-pin-valbox" id="pinval-' + i + '" data-addr="' + addrEsc + '" type="number" placeholder="新值" value="' + fv + '">'
+      + '<button class="sc-pin-write" data-idx="' + i + '" data-waddr="' + addrEsc + '" onclick="doWrite(this.dataset.waddr,this.dataset.idx)">写入</button>'
+      + '</div></div>'
+    );
+  }
+  list.innerHTML = items.join('');
+}
+function pinSelected() {
+  var sel = getSelectedList();
+  for (var i = 0; i < sel.length; i++) {
+    if (pinnedAddrs.indexOf(sel[i]) === -1) pinnedAddrs.push(sel[i]);
+  }
+  renderPinned();
+  toast('已锁定 ' + sel.length + ' 個地址', 'sc');
+}
+
+// ── Write single ──────────────────────────────────────────────────────
+async function doWrite(addr, idx) {
+  var inp = document.getElementById('pinval-' + idx);
+  if (!inp) return;
+  var val = parseInt(inp.value, 10);
+  if (isNaN(val)) { toast('请输入有效数值', 'bad'); return; }
+  var btn = inp.nextElementSibling;
+  if (btn) { btn.textContent = '...'; btn.disabled = true; }
+  try {
+    var r = await api.memWrite(addr, val);
+    if (r && r.ok) {
+      firstValues[addr] = val;
+      toast('写入成功: ' + addr.split(':')[0] + ' = ' + val, 'sc');
+    } else {
+      toast('写入失败' + (r && r.error ? ': ' + r.error : ''), 'bad');
+    }
+  } catch(e) {
+    toast('写入异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+  } finally {
+    if (btn) { btn.textContent = '写入'; btn.disabled = false; }
+  }
+}
+
+// ── Bulk write selected ───────────────────────────────────────────────
+async function doBulkWrite() {
+  var btn = document.getElementById('btnBulkWrite');
+  try {
+    var sel = getSelectedList();
+    if (sel.length === 0) { toast('请先选择地址', 'bad'); return; }
+    var valStr = document.getElementById('scBulkVal').value.trim();
+    if (valStr === '') { toast('请输入要写入的新值', 'bad'); return; }
+    var val = parseInt(valStr, 10);
+    if (isNaN(val)) { toast('数值格式不正确', 'bad'); return; }
+
+    var safeMode = document.getElementById('chkSafeWrite').checked;
+    btn.disabled = true;
+
+    if (!safeMode) {
+      btn.innerHTML = '写入中...';
+      var items = sel.map(function(addr) { return { addr: addr, value: val }; });
+      var r;
+      try {
+        r = await api.memBatchWrite(items);
+      } catch (e) {
+        toast('批量写入异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+        return;
+      }
+      r = r || { ok:false };
+      var ok = r.written || 0, fail = r.failed || 0;
+      if (r.ok) for (var i = 0; i < sel.length; i++) firstValues[sel[i]] = val;
+      try { renderResults(false); } catch(_) {}
+      if (!r.ok) toast('写入失败: ' + (r.error || ''), 'bad');
+      else if (fail === 0) toast('写入成功 ' + ok + ' 個地址', 'sc');
+      else toast('成功' + ok + ' 失败' + fail, 'bad');
+      return;
+    }
+
+    // Safe mode: 10 at a time
+    var BATCH_SIZE = 10;
+    var PAUSE_MS   = 150;
+    var totalOk = 0, totalFail = 0, stopped = false, batchNum = 0;
+    for (var start = 0; start < sel.length; start += BATCH_SIZE) {
+      batchNum++;
+      var chunk = sel.slice(start, start + BATCH_SIZE);
+      var progress = Math.round((start / sel.length) * 100);
+      btn.innerHTML = '☕ ' + progress + '% (' + totalOk + '写)';
+      var items2 = chunk.map(function(addr) { return { addr: addr, value: val }; });
+      var r2;
+      try {
+        r2 = await api.memBatchWrite(items2);
+      } catch (e) {
+        // 单批异常: 不再继续后续批次, 但已写入的统计仍保留
+        toast('批量写入第 ' + batchNum + ' 批异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+        break;
+      }
+      if (r2 && r2.ok) {
+        totalOk   += r2.written || 0;
+        totalFail += r2.failed  || 0;
+        for (var j = 0; j < chunk.length; j++) firstValues[chunk[j]] = val;
+      } else if (r2 && r2.error) {
+        // 该批失败但 IPC 正常, 累计 failed = chunk 大小
+        totalFail += chunk.length;
+      }
+      await new Promise(function(res){ setTimeout(res, PAUSE_MS); });
+      if (!currentRenderPid) { stopped = true; break; }
+    }
+    try { renderResults(false); } catch(_) {}
+    if (stopped) toast('⚠ 游戏停活！已成功写入 ' + totalOk + ' 個', 'bad');
+    else if (totalFail === 0) toast('✅ 安全写入成功 ' + totalOk + ' 個地址', 'sc');
+    else toast('成功' + totalOk + ' 失败' + totalFail, 'bad');
+  } catch (e) {
+    toast('批量写入未捕获异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+  } finally {
+    if (btn) { btn.innerHTML = '升号写入所选'; btn.disabled = false; }
+  }
+}
+
+// ── Bulk write pinned ─────────────────────────────────────────────────
+async function doPinBulkWrite() {
+  try {
+    if (pinnedAddrs.length === 0) { toast('无锁定地址', 'bad'); return; }
+    var valStr = document.getElementById('pinBulkVal').value.trim();
+    if (valStr === '') { toast('请输入新值', 'bad'); return; }
+    var val = parseInt(valStr, 10);
+    if (isNaN(val)) { toast('数值格式不正确', 'bad'); return; }
+    var items = pinnedAddrs.map(function(addr) { return { addr: addr, value: val }; });
+    var r;
+    try {
+      r = await api.memBatchWrite(items);
+    } catch (e) {
+      toast('批量写入异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+      return;
+    }
+    r = r || { ok:false };
+    var ok = r.written || 0, fail = r.failed || 0;
+    if (r.ok) for (var i = 0; i < pinnedAddrs.length; i++) firstValues[pinnedAddrs[i]] = val;
+    try { renderPinned(); renderResults(false); } catch(_) {}
+    if (!r.ok) toast('写入失败: ' + (r.error || ''), 'bad');
+    else if (fail === 0) toast('全部写入成功 (' + ok + ')', 'sc');
+    else toast('成功' + ok + ' 失败' + fail, 'bad');
+  } catch (e) {
+    toast('锁定批量写入异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+  }
+}
+
+// ── Scan buttons ──────────────────────────────────────────────────────
+document.getElementById('btnScanNew').addEventListener('click', async function() {
+  try {
+    if (!currentRenderPid) { toast('请先启动游戏', 'bad'); return; }
+    // 强制刷新 PPAPI 识别; 失败则拒绝扫描
+    var ok = await refreshPpapiStatus();
+    if (!ok) {
+      toast('⛔ 未识别 Flash PPAPI 进程, 扫描已禁用。请等待游戏完全加载, 或刷新游戏, 或重启启动器。', 'bad');
+      return;
+    }
+    var valStr = document.getElementById('scValInput').value.trim();
+    if (valStr === '') { toast('请输入要搜索的数值', 'bad'); return; }
+    var val = parseFloat(valStr);
+    if (isNaN(val)) { toast('数值格式不正确', 'bad'); return; }
+    if (val < 0 || val > 99999) { toast('数值超出范围 (0 ~ 99999)，已忽略', 'bad'); return; }
+    var scanType = document.getElementById('scType').value;
+
+    // Reset safe PIDs and current values on every new scan
+    knownSafePids = {};
+    currentValues = {};
+
+    setScanState(true, '扫描中...');
+    var r;
+    try {
+      r = await api.memScanNew(val, scanType);
+    } catch (e) {
+      setScanState(false, '');
+      toast('扫描调用异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+      return;
+    }
+    setScanState(false, '');
+    if (!r || !r.ok) { toast('扫描失败: ' + (r && r.error ? r.error : '未知错误'), 'bad'); return; }
+
+    var allAddrs = r.addresses || [];
+    learnSafePidsFromAddresses(allAddrs);
+    try {
+      api.getStatus().then(function(st) {
+        if (st && st.safePids) st.safePids.forEach(function(p){ knownSafePids[String(p)] = true; });
+      }).catch(function(){});
+    } catch(_) {}
+
+    var ppapiFound = (r.ppapi && r.ppapi.length > 0);
+    setProcInfo(r.pids || [], r.ppapi || []);
+
+    var filtered = filterSafeAddresses(allAddrs);
+    if (filtered && filtered.safe !== undefined) {
+      scanAddresses = filtered.safe;
+    } else {
+      scanAddresses = allAddrs;
+    }
+
+    firstValues = {};
+    for (var i = 0; i < scanAddresses.length; i++) firstValues[scanAddresses[i]] = val;
+    selectedAddrs = {};
+    for (var i = 0; i < scanAddresses.length && i < 500; i++) selectedAddrs[scanAddresses[i]] = true;
+
+    document.getElementById('btnScanNext').disabled = (scanAddresses.length === 0);
+    document.getElementById('scCount').textContent = scanAddresses.length;
+    var chkAll = document.getElementById('chkAll');
+    if (chkAll) chkAll.checked = (scanAddresses.length > 0);
+    updateSelCount();
+    renderResults(true);
+
+    if (scanAddresses.length === 0) {
+      toast('未找到结果', 'bad');
+    } else {
+      if (!ppapiFound) {
+        // PPAPI 未识别: 当前是降级到 renderer 进程扫的, 结果几乎肯定无效
+        toast('⚠️ 未识别 Flash PPAPI 进程, 当前扫描的是 Renderer (非 Flash), 结果可能无效。请刷新游戏或重新打开后再试。找到 ' + scanAddresses.length + ' 個', 'bad');
+      } else if (r.zeroValue && r.hitCap) {
+        // 0 扫描候选过多: 0 在内存里到处都是, 50K 上限肯定截断, 不建议用 0 起手
+        toast('找到 ' + scanAddresses.length + ' 個 [🔥Flash进程] ⚠️ 0 的候选过多,真实地址极可能被截断丢弃。建议先玩到非 0 数值后再新建扫描。', 'bad');
+      } else if (r.hitCap) {
+        // 非 0 命中上限
+        toast('找到 ' + scanAddresses.length + ' 個 [🔥Flash进程] ⚠️候选已达 50000 上限,真实地址可能被丢弃,建议改用更具体的初始值', 'bad');
+      } else {
+        toast('找到 ' + scanAddresses.length + ' 個 [🔥Flash进程]', 'sc');
+      }
+    }
+  } catch (e) {
+    // 兜底: 任何异常都不能让按钮卡在 "扫描中..." 状态
+    try { setScanState(false, ''); } catch(_) {}
+    toast('扫描异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+  }
+});
+
+document.getElementById('btnScanNext').addEventListener('click', async function() {
+  try {
+    if (!currentRenderPid) { toast('游戏未运行', 'bad'); return; }
+    // next-scan 也要求 PPAPI 已识别 (避免 PPAPI 进程在两次扫描之间退出导致基于无效进程读取)
+    var ok = await refreshPpapiStatus();
+    if (!ok) {
+      toast('⛔ 未识别 Flash PPAPI 进程, 扫描已禁用。请刷新游戏后重新打开扫描器。', 'bad');
+      return;
+    }
+    if (scanAddresses.length === 0) { toast('无上次结果', 'bad'); return; }
+    var valStr = document.getElementById('scValInput').value.trim();
+    if (valStr === '') { toast('请输入新的数值', 'bad'); return; }
+    var val = parseFloat(valStr);
+    if (isNaN(val)) { toast('数值格式不正确', 'bad'); return; }
+    if (val < 0 || val > 99999) { toast('数值超出范围 (0 ~ 99999)，已忽略', 'bad'); return; }
+
+    setScanState(true, '过滤中...');
+    var r;
+    try {
+      r = await api.memScanNext(val, scanAddresses);
+    } catch (e) {
+      setScanState(false, '');
+      toast('扫描调用异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+      return;
+    }
+    setScanState(false, '');
+    if (!r || !r.ok) { toast('扫描失败: ' + (r && r.error ? r.error : '未知错误'), 'bad'); return; }
+
+    var allAddrs = r.addresses || [];
+    learnSafePidsFromAddresses(allAddrs);
+    var filtered = filterSafeAddresses(allAddrs);
+    if (filtered && filtered.safe !== undefined) {
+      // ── Hypothesis A 防御 ─────────────────────────────────────────────
+      // scanner 已经只在 PPAPI 进程里读取, raw output 必然来自该 PPAPI PID;
+      // 若前端 knownSafePids 因 Flash 重启 (PID 变化) 没有及时同步, 会把所有
+      // tag 都当作 unsafe 过滤掉, UI 看到 0 但 scanner 实际有结果。
+      // 凡是 raw>0 但 filtered=0 的情况一律保留 raw, 同时把 raw 里出现的 PID
+      // 学习进 knownSafePids, 下次循环就不再误过滤。
+      if (filtered.safe.length === 0 && allAddrs.length > 0) {
+        console.log('[Scan] Next scan: filterSafeAddresses removed ALL ' + allAddrs.length + ' tags. Bypassing filter (scanner already PPAPI-restricted).');
+        toast('已绕过前端 PID 过滤 (filtered 0/' + allAddrs.length + '), scanner 已限定 PPAPI 进程', 'sc');
+        scanAddresses = allAddrs;
+      } else {
+        scanAddresses = filtered.safe;
+      }
+    } else {
+      scanAddresses = allAddrs;
+    }
+    console.log('[Scan] Next scan: raw=' + allAddrs.length + ' afterFilter=' + scanAddresses.length);
+
+    selectedAddrs = {};
+    for (var i = 0; i < scanAddresses.length && i < 500; i++) selectedAddrs[scanAddresses[i]] = true;
+
+    document.getElementById('scCount').textContent = scanAddresses.length;
+    var chkAll2 = document.getElementById('chkAll');
+    if (chkAll2) chkAll2.checked = (scanAddresses.length > 0);
+    updateSelCount();
+    renderResults(true);
+
+    if (scanAddresses.length === 0) {
+      document.getElementById('btnScanNext').disabled = true;
+      toast('0 结果 — 建议重新新建扫描（当前值）', 'bad');
+      var body = document.getElementById('scResultsBody');
+      body.innerHTML = '<div class="sc-empty" style="padding:14px 10px;text-align:center;">'
+        + '<div style="color:#ef4444;font-size:11px;margin-bottom:8px;">过滤后 0 结果</div>'
+        + '<div style="color:#64748b;font-size:10px;line-height:1.7;">'
+        + '上次扫描结果可能来自非Flash进程<br>'
+        + '请将数值改为当前游戏数值，点击「新建扫描」重新开始<br>'
+        + '<span style="color:#00d4ff;">类型选「全类型扫描」可提高命中率</span>'
+        + '</div></div>';
+    } else {
+      document.getElementById('btnScanNext').disabled = false;
+      toast('过滤后保留 ' + scanAddresses.length + ' 个', 'sc');
+    }
+  } catch (e) {
+    try { setScanState(false, ''); } catch(_) {}
+    toast('扫描异常: ' + (e && e.message ? e.message : String(e)), 'bad');
+  }
+});
+
+document.getElementById('btnScanReset').addEventListener('click', function() {
+  // ── 重置: 必须把 overlay 内所有扫描相关状态全部清空 ────────────────────
+  // 之前只清了 scanAddresses/firstValues/currentValues/selectedAddrs, 其余模块级
+  // 变量 (lastClickedIndex / pinnedAddrs / knownSafePids / _refreshingCurVals)
+  // 残留, 导致重置后再扫描时:
+  //   - selectedAddrs 范围选择基准点 (lastClickedIndex) 仍指向旧索引
+  //   - knownSafePids 仍含上次 PPAPI PID, 若 Flash 进程已重启则新结果被 filterSafe 过滤为 0
+  //   - pinnedAddrs 仍引用旧地址
+  scanAddresses     = [];
+  firstValues       = {};
+  currentValues     = {};
+  selectedAddrs     = {};
+  pinnedAddrs       = [];
+  knownSafePids     = {};
+  lastClickedIndex  = -1;
+  _refreshingCurVals = false;
+
+  document.getElementById('scCount').textContent = '0';
+  document.getElementById('btnScanNext').disabled = true;
+  var chkAll = document.getElementById('chkAll');
+  if (chkAll) chkAll.checked = false;
+  // 输入框 + 批量值 + pin 批量值 全部清空, 避免上一次留值误导
+  try { document.getElementById('scValInput').value = ''; } catch(_) {}
+  try { document.getElementById('scBulkVal').value = ''; } catch(_) {}
+  try { document.getElementById('pinBulkVal').value = ''; } catch(_) {}
+  // 刷新按钮如果还在 loading 状态, 复位它
+  try {
+    var rfBtn = document.getElementById('btnRefreshVals');
+    if (rfBtn) { rfBtn.textContent = '↻'; rfBtn.disabled = false; }
+  } catch(_) {}
+  updateSelCount();
+  renderResults(false);
+  renderPinned();
+  document.getElementById('scResultsBody').innerHTML =
+    '<div class="sc-empty"><span>已重置 &middot; 输入新数值后点击新建扫描</span></div>';
+  // 重置后强制刷一次 PPAPI 识别状态 (上次扫描可能改了 _ppapiVerified, 也可能 PPAPI 已经换 PID)
+  // refreshPpapiStatus 内部会重新初始化 knownSafePids 预期值
+  if (typeof refreshPpapiStatus === 'function') {
+    try { refreshPpapiStatus(); } catch(_) {}
+  }
+  // 同步刷新 safePids (从主进程取一次最新 PPAPI/render PID)
+  try {
+    api.getStatus().then(function(s) {
+      knownSafePids = {};
+      if (s && s.safePids) s.safePids.forEach(function(p){ knownSafePids[String(p)] = true; });
+    }).catch(function(){});
+  } catch(_) {}
+  toast('扫描已重置', '');
+});
+
+// ── Close button ──────────────────────────────────────────────────────
+document.getElementById('btnClose').addEventListener('click', function() {
+  window.close();
+});
+
+// ── Game state sync ───────────────────────────────────────────────────
+api.onGameLaunched(function(d) {
+  currentRenderPid = (d && d.renderPid) ? d.renderPid : null;
+  knownSafePids = {};
+  if (currentRenderPid) knownSafePids[String(currentRenderPid)] = true;
+  api.getStatus().then(function(s) {
+    knownSafePids = {};
+    if (s.safePids) s.safePids.forEach(function(p){ knownSafePids[String(p)] = true; });
+  });
+  var hex = currentRenderPid ? currentRenderPid.toString(16).toUpperCase() : '--';
+  var titlePid = document.getElementById('titlePid');
+  if (titlePid) titlePid.textContent = 'PID: ' + hex + 'h';
+  document.getElementById('sbarRight').textContent = 'PID: ' + hex + 'h';
+  if (currentRenderPid)
+    document.getElementById('sbarLeft').textContent = '游戏运行中 · 可直接扫描';
+  // 游戏窗口刷新后 Flash PPAPI 进程会重启 → 重新拉一次 PPAPI 识别
+  if (currentRenderPid && typeof refreshPpapiStatus === 'function') {
+    setTimeout(refreshPpapiStatus, 1500); // 给 FlashPrioWatcher 一点时间扫到新 PID
+  }
+});
+api.onGameClosed(function() {
+  currentRenderPid = null;
+  knownSafePids = {};
+  var titlePid = document.getElementById('titlePid');
+  if (titlePid) titlePid.textContent = '游戏已关闭';
+  document.getElementById('sbarRight').textContent = '';
+});
+api.onProxyChanged(function(d) {});
+
+// ── Init ──────────────────────────────────────────────────────────────
+// Poll until we get a valid PID (covers case where overlay opens before
+// the game PID is fully set, e.g. Flash renderer reload).
+var _initRetries = 0;
+function initPollPid() {
+  api.getStatus().then(function(s) {
+    if (s && s.gameRenderPid) {
+      currentRenderPid = s.gameRenderPid;
+      knownSafePids = {};
+      if (s.safePids) s.safePids.forEach(function(p){ knownSafePids[String(p)] = true; });
+      var hex = currentRenderPid.toString(16).toUpperCase();
+      var titlePid = document.getElementById('titlePid');
+      if (titlePid) titlePid.textContent = 'PID: ' + hex + 'h';
+      document.getElementById('sbarRight').textContent = 'PID: ' + hex + 'h';
+      document.getElementById('sbarLeft').textContent = '游戏运行中 · 可直接扫描';
+      // 立即刷新 PPAPI 识别状态 (顶部诊断条 + 按钮启用/禁用)
+      refreshPpapiStatus();
+    } else {
+      _initRetries++;
+      if (_initRetries < 20) {
+        setTimeout(initPollPid, 500);
+        if (_initRetries === 1)
+          document.getElementById('sbarLeft').textContent = '等待游戏启动...';
+      } else {
+        document.getElementById('sbarLeft').textContent = '请先启动游戏';
+      }
+    }
+  }).catch(function() {
+    _initRetries++;
+    if (_initRetries < 20) setTimeout(initPollPid, 500);
+  });
+}
+initPollPid();
+
+// ── 标题栏图钉（toggleTitlebarPin）──────────────────────────────────
+// 与地址锁定函数 toggleAddrPin / togglePin(addr) 完全隔离，杜绝同名覆盖 bug
+// 变量使用 _winPinned 以区别于 pin 地址逻辑中的局部变量
+var _winPinned = false;
+function toggleTitlebarPin() {
+  _winPinned = !_winPinned;
+  var btn = document.getElementById('btnPin');
+  if (btn) {
+    btn.className = 'titlebar-pin' + (_winPinned ? ' pinned' : '');
+    btn.title = _winPinned ? '已固定（多窗口共存中，不被点击或切换关闭）' : '固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）';
+    try { btn.blur(); } catch(_) {}
+  }
+  try { if (window.electronAPI && window.electronAPI.setOverlayPinned) window.electronAPI.setOverlayPinned(_winPinned); } catch(e) {}
+}
+
+document.addEventListener('mouseup', function(event) {
+  var button = event.target && event.target.closest ? event.target.closest('button') : null;
+  if (button) setTimeout(function() { try { button.blur(); } catch(_) {} }, 0);
+});
+
+</script>
+</body>
+</html>

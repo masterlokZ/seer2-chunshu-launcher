@@ -1,0 +1,22 @@
+{
+  "bilibili.jpg": {
+    "sha256": "fc21251780feda27b30f8bdae8865f317cb1cc3c273fd672734f900cda4aa2ca",
+    "size": 69427
+  },
+  "contact-qq.jpg": {
+    "sha256": "0ec1037c7677e17a15c5911e90a791597123d0b37d1d44666f283efbadd829f4",
+    "size": 198356
+  },
+  "qq-group.jpg": {
+    "sha256": "d04bd51dcc470a6b31be86226d43bc9e1feb7e4526f0b68bb6315502a068fd99",
+    "size": 158234
+  },
+  "sponsor.jpg": {
+    "sha256": "c5d7fe41d4bc9de7a50aa19c7f5b9c0d13f1f6a34bfc22e43013be0a77beceac",
+    "size": 232284
+  },
+  "icon.ico": {
+    "sha256": "c13b4b1c35e7d0090748853ad6fe7e11152f9913be65d294c9c98f3daef4f20f",
+    "size": 142607
+  }
+}

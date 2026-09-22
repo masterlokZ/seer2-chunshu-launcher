@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body {
+      width: 200px;
+      height: 36px;
+      background: transparent;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* 整个条作为拖拽区域 */
+    .bar {
+      display: flex;
+      width: 200px;
+      height: 36px;
+      background: rgba(8, 12, 24, 0.88);
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      border-radius: 9px;
+      overflow: hidden;
+      backdrop-filter: blur(8px);
+      -webkit-app-region: drag;   /* 整体可拖动 */
+    }
+
+    /* 每个按钮必须 no-drag 才能响应点击 */
+    .btn {
+      -webkit-app-region: no-drag;
+      flex: 1;
+      height: 100%;
+      border: none;
+      background: transparent;
+      color: #00d4ff;
+      font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: background 0.15s;
+      letter-spacing: 0.5px;
+    }
+    .btn:hover   { background: rgba(0, 212, 255, 0.15); }
+    .btn:active  { background: rgba(0, 212, 255, 0.28); }
+
+    /* 分隔线 */
+    .sep {
+      width: 1px;
+      height: 20px;
+      background: rgba(0, 212, 255, 0.18);
+      align-self: center;
+      flex-shrink: 0;
+      -webkit-app-region: drag;
+    }
+
+    .btn.clear { color: #f59e0b; }
+    .btn.clear:hover { background: rgba(245, 158, 11, 0.15); }
+
+    .icon { font-size: 14px; line-height: 1; }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <!-- 刷新按钮 -->
+    <button class="btn" id="btnReload" title="刷新游戏页面">
+      <span class="icon" id="iconReload">↺</span>
+      <span>刷新</span>
+    </button>
+
+    <div class="sep"></div>
+
+    <!-- 清缓存并刷新 -->
+    <button class="btn clear" id="btnClearReload" title="清除浏览器缓存并刷新">
+      <span class="icon">🗑</span>
+      <span>清缓存刷新</span>
+    </button>
+  </div>
+
+  <script>
+    // 刷新
+    document.getElementById('btnReload').addEventListener('click', () => {
+      window.overlayAPI.reload();
+      const icon = document.getElementById('iconReload');
+      icon.style.display = 'inline-block';
+      icon.style.transition = 'transform 0.4s';
+      icon.style.transform = 'rotate(360deg)';
+      setTimeout(() => { icon.style.transition = ''; icon.style.transform = ''; }, 450);
+    });
+
+    // 清缓存 + 刷新
+    document.getElementById('btnClearReload').addEventListener('click', () => {
+      const btn = document.getElementById('btnClearReload');
+      btn.style.opacity = '0.5';
+      btn.style.pointerEvents = 'none';
+      window.overlayAPI.clearCacheAndReload();
+      setTimeout(() => { btn.style.opacity = ''; btn.style.pointerEvents = ''; }, 2000);
+    });
+  </script>
+</body>
+</html>

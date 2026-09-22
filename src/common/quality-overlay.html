@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>游戏画质</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0e1a;--line:rgba(0,212,255,.12);--text:#e2e8f0;--dim:#64748b;--cyan:#00d4ff;--red:#ef4444}
+html,body{width:100%;height:100%;min-width:0;min-height:0;overflow:hidden;background:var(--bg);color:var(--text);font:11px "Microsoft YaHei","Segoe UI",sans-serif;user-select:none}
+body{display:flex;flex-direction:column}
+body.saving .content{pointer-events:none}
+button:focus{outline:none}
+.titlebar{height:32px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 10px;background:rgba(0,212,255,.06);border-bottom:1px solid var(--line);-webkit-app-region:drag}
+.titlebar-ico{font-size:13px;color:var(--cyan)}
+.titlebar-txt{flex:1;color:var(--cyan);font-weight:600;letter-spacing:1px}
+.titlebar-pin,.titlebar-min,.titlebar-close{-webkit-app-region:no-drag;display:flex;align-items:center;justify-content:center;border:none;cursor:pointer}
+.titlebar-pin{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:transparent;color:var(--muted,#7e93a8);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.5;transition:all .18s;outline:none}
+.titlebar-pin:hover{background:rgba(255,255,255,.1);opacity:.85}
+.titlebar-pin.pinned{color:#f59e0b;opacity:1;outline:none}
+.titlebar-pin:focus{outline:none}
+.titlebar-min{width:20px;height:20px;border-radius:3px;background:rgba(100,116,139,.10);color:var(--dim);font-size:14px;font-weight:700;opacity:.6;transition:all .18s}
+.titlebar-min:hover{background:rgba(100,116,139,.25);opacity:1;color:var(--text)}
+.titlebar-close{width:22px;height:22px;border-radius:4px;background:rgba(239,68,68,.08);color:var(--red);font-size:13px}
+.titlebar-close:hover{background:rgba(239,68,68,.22)}
+.empty-content{display:none}
+/* Keep the compact quality panel self-contained at its 300px minimum height.
+ * The previous auto-scroller let the right scrollbar and the last row peek out
+ * of the rounded window on high-DPI displays. */
+.content{flex:1;min-width:0;min-height:0;overflow:hidden;padding:10px 12px 6px}
+.section{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#0d1525;margin:0;min-width:0}
+.section-head{display:flex;align-items:center;margin-bottom:6px}
+.section-title{font-size:11px;font-weight:600;color:#a8dced;letter-spacing:.3px}
+.quality-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;min-width:0}
+.quality-grid>*{min-width:0}
+.choice{display:flex;gap:6px;align-items:center;min-width:0;padding:6px 8px;border:1px solid rgba(255,255,255,.08);border-radius:6px;cursor:pointer;background:rgba(255,255,255,.025)}
+.choice:hover{border-color:rgba(0,212,255,.3)}.choice input{accent-color:var(--cyan);flex:0 0 auto}
+.choice>span{min-width:0;color:var(--text);font-size:11px}
+.choice b{display:inline;color:var(--text);font-size:11px;white-space:nowrap}.best{color:#f59e0b!important}
+.divider{height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,.18),transparent);margin:8px 0}
+.zoom-card{padding:7px 10px;border:1px solid rgba(0,212,255,.14);border-radius:6px;background:rgba(0,212,255,.025);transition:border-color .2s ease,background-color .2s ease}
+.zoom-card:hover{border-color:rgba(0,212,255,.28);background:rgba(0,212,255,.04)}
+.zoom-card.active{border-color:rgba(0,212,255,.38);background:rgba(0,212,255,.055)}
+.zoom-head{display:flex;align-items:center;justify-content:space-between;cursor:pointer;gap:8px}
+.zoom-title-row{display:flex;align-items:center;gap:8px;min-width:0}
+.zoom-title{font-size:11px;font-weight:600;color:var(--text);letter-spacing:.3px;white-space:nowrap}
+.zoom-badge{font-size:9.5px;padding:1px 8px;border-radius:3px;line-height:1.3;border:1px solid rgba(255,255,255,.15);color:var(--dim);transition:border-color .2s ease,color .2s ease,background-color .2s ease;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;min-width:56px;text-align:center}
+.zoom-card.active .zoom-badge{border-color:rgba(0,212,255,.45);color:var(--cyan);background:rgba(0,212,255,.1)}
+.switch{position:relative;display:inline-block;width:32px;height:17px;flex-shrink:0;contain:layout style}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);border-radius:17px;transition:background-color .2s ease,border-color .2s ease,box-shadow .2s ease}
+.slider:before{position:absolute;content:"";height:11px;width:11px;left:2px;top:2px;background:#94a3b8;border-radius:50%;transition:transform .2s cubic-bezier(.4,0,.2,1),background-color .2s ease,box-shadow .2s ease;will-change:transform}
+.switch input:checked + .slider{background:rgba(0,212,255,.25);border-color:rgba(0,212,255,.6);box-shadow:0 0 6px rgba(0,212,255,.35)}
+.switch input:checked + .slider:before{transform:translateX(15px);background:#00d4ff;box-shadow:0 0 5px rgba(0,212,255,.8)}
+.zoom-desc{font-size:10px;color:#94a3b8;line-height:1.35;margin:4px 0 5px}
+.zoom-hint{display:flex;align-items:flex-start;gap:5px;padding:3px 6px;background:rgba(255,255,255,.03);border-left:2px solid rgba(0,212,255,.4);border-radius:0 4px 4px 0;font-size:9.5px;color:#7dd3fc;line-height:1.35}
+.zoom-hint-ico{flex-shrink:0;font-size:10px}
+.footer{height:36px;display:flex;align-items:center;gap:8px;padding:0 14px;border-top:1px solid var(--line);background:#09101d;flex-shrink:0}
+.status{flex:1;min-width:0;color:var(--dim);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn{height:28px;padding:0 12px;border:1px solid rgba(0,212,255,.3);border-radius:5px;background:rgba(0,212,255,.06);color:var(--cyan);cursor:pointer;flex:0 0 auto}.btn:hover{background:rgba(0,212,255,.12)}.btn.good{border-color:rgba(34,197,94,.4);color:#22c55e}.btn:disabled{opacity:.55;cursor:wait}
+</style>
+</head>
+<body>
+<div class="titlebar">
+  <span class="titlebar-ico">◈</span>
+  <span class="titlebar-txt">画质</span>
+  <button class="titlebar-pin" id="btnPin" onclick="toggleTitlebarPin()" title="固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）">📌</button>
+  <button class="titlebar-min" onclick="if(window.electronAPI)window.electronAPI.minimizeSelf()" title="最小化到任务栏">─</button>
+  <button class="titlebar-close" id="btnClose" title="关闭">✕</button>
+</div>
+<div class="content"><div class="section">
+  <div class="section-head">
+    <span class="section-title">Flash 原生画质</span>
+  </div>
+  <div class="quality-grid">
+    <label class="choice"><input type="radio" name="quality" value="low"><span><b>低（low）</b></span></label>
+    <label class="choice"><input type="radio" name="quality" value="medium"><span><b>中（medium）</b></span></label>
+    <label class="choice"><input type="radio" name="quality" value="high"><span><b>高（high，默认）</b></span></label>
+    <label class="choice"><input type="radio" name="quality" value="best"><span><b class="best">最高（best）</b></span></label>
+  </div>
+  <div class="divider"></div>
+  <div class="zoom-card" id="zoomCard" data-compat="全屏 / 大窗口高清重采样 · 以游戏原生分辨率平滑拉伸">
+    <div class="zoom-head" onclick="toggleZoomSwitch()">
+      <div class="zoom-title-row">
+        <span class="zoom-title">帧放大</span>
+        <span class="zoom-badge" id="zoomBadge">平滑缩放 (流畅低载)</span>
+      </div>
+      <label class="switch" onclick="event.stopPropagation()"><input type="checkbox" id="frameZoom" onchange="syncZoomState()"><span class="slider"></span></label>
+    </div>
+    <div class="zoom-desc" id="zoomDesc">关闭后，以基础分辨率平滑拉伸铺满窗口，降低每帧高负荷矢量计算，有效防止大招特效卡顿。</div>
+    <div class="zoom-hint"><span class="zoom-hint-ico">💡</span> <span>画面大小由窗口缩放/最大化按钮控制，两档均铺满窗口。若遇复杂技能特效掉帧，保持关闭更流畅。</span></div>
+  </div>
+</div></div>
+<div class="footer"><span id="status" class="status">正在读取配置…</span><button class="btn good" onclick="saveAndReload()">保存并应用</button></div>
+<script>
+'use strict';
+var _winPinned=false,_saving=false,_lastSyncedZoom=null,api=window.electronAPI||null;
+function closeSelf(){if(window.electronAPI&&window.electronAPI.hideSelf)window.electronAPI.hideSelf();else window.close();}
+function toggleTitlebarPin(){
+  _winPinned=!_winPinned;
+  var button=document.getElementById('btnPin');
+  if(button){
+    button.className='titlebar-pin'+(_winPinned?' pinned':'');
+    button.title=_winPinned?'已固定（多窗口共存中，不被点击或切换关闭）':'固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）';
+    try{button.blur();}catch(_){}
+  }
+  try{window.electronAPI.setOverlayPinned(_winPinned);}catch(error){}
+}
+document.getElementById('btnClose').onclick=closeSelf;
+document.addEventListener('keydown',function(event){if(event.key==='Escape')closeSelf();});
+document.addEventListener('mouseup',function(event){var button=event.target&&event.target.closest?event.target.closest('button'):null;if(button)setTimeout(function(){try{button.blur()}catch(_){}},0);});
+function selectedQuality(){var e=document.querySelector('input[name=quality]:checked');return e?e.value:'high';}
+function selectedFrameZoom(){var e=document.getElementById('frameZoom');return !!(e&&e.checked);}
+function syncZoomState(force){
+  var isChecked=selectedFrameZoom();
+  if(!force&&_lastSyncedZoom===isChecked)return;
+  _lastSyncedZoom=isChecked;
+  var card=document.getElementById('zoomCard');
+  var badge=document.getElementById('zoomBadge');
+  var desc=document.getElementById('zoomDesc');
+  if(card&&badge){
+    if(isChecked){
+      card.classList.add('active');
+      badge.textContent='每帧重绘 (极致清晰)';
+      if(desc)desc.textContent='开启后，画面随窗口缩放时每帧按实际分辨率重新计算矢量放大，角色线条与文字极致清晰锐利。';
+    }else{
+      card.classList.remove('active');
+      badge.textContent='平滑缩放 (流畅低载)';
+      if(desc)desc.textContent='关闭后，以基础分辨率平滑拉伸铺满窗口，降低每帧高负荷矢量计算，有效防止大招特效卡顿。';
+    }
+  }
+}
+function toggleZoomSwitch(){
+  if(_saving)return;
+  var el=document.getElementById('frameZoom');
+  if(el&&!el.disabled){el.checked=!el.checked;syncZoomState();}
+}
+function setStatus(r,prefix){var q=(r&&r.quality)||'high';document.getElementById('status').textContent=(prefix||'当前：')+q.toUpperCase();}
+async function loadQuality(){if(!api||!api.getQualityConfig){document.getElementById('status').textContent='当前包不支持画质配置';return;}var r=await api.getQualityConfig(),q=(r&&r.quality)||'high',radio=document.querySelector('input[name=quality][value="'+q+'"]');if(radio)radio.checked=true;document.getElementById('frameZoom').checked=!!(r&&r.frameZoom);syncZoomState(true);setStatus(r);}
+async function saveQuality(){
+  if(_saving)return null;
+  if(!api||!api.setQualityConfig){
+    var st=document.getElementById('status');
+    if(st)st.textContent='当前包不支持画质配置';
+    return null;
+  }
+  _saving=true;
+  document.body.classList.add('saving');
+  var button=document.querySelector('.footer .btn');
+  if(button)button.disabled=true;
+  try{
+    var r=await api.setQualityConfig({quality:selectedQuality(),frameZoom:selectedFrameZoom()});
+    if(!r||!r.ok){
+      var st=document.getElementById('status');
+      if(st)st.textContent='保存失败：'+((r&&r.error)||'未知错误');
+      return null;
+    }
+    // 帧放大（每帧高分辨率矢量重绘）与Flash原生画质均由主进程即时应用（无需重启登陆器与刷新游戏），即刻完成平滑过渡。
+    setStatus(r,'已即时生效：');
+    return r;
+  }catch(err){
+    var st=document.getElementById('status');
+    if(st)st.textContent='保存失败：'+((err&&err.message)||'未知错误');
+    return null;
+  }finally{
+    _saving=false;
+    document.body.classList.remove('saving');
+    if(button)button.disabled=false;
+  }
+}
+async function saveAndReload(){
+  if(_saving)return;
+  return await saveQuality();
+}
+loadQuality();
+</script>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>文件校验</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:#0a0e1a;color:#e2e8f0;font-family:'Microsoft YaHei','Segoe UI',sans-serif;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;user-select:none;}
+.card{width:420px;background:rgba(255,255,255,.04);border:1px solid rgba(0,212,255,.15);border-radius:12px;padding:28px 28px 22px;display:flex;flex-direction:column;gap:16px;-webkit-app-region:drag;user-select:none;}
+.title{font-size:15px;font-weight:700;color:#00d4ff;letter-spacing:1px;display:flex;align-items:center;gap:8px;}
+.subtitle{font-size:11px;color:#64748b;margin-top:2px;}
+.file-list{display:flex;flex-direction:column;gap:6px;}
+.file-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-radius:6px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);transition:background .2s;}
+.file-row.ok   {border-color:rgba(34,197,94,.25); background:rgba(34,197,94,.05);}
+.file-row.bad  {border-color:rgba(239,68,68,.25);  background:rgba(239,68,68,.05);}
+.file-row.downloading{border-color:rgba(0,212,255,.3);background:rgba(0,212,255,.05);}
+.file-row.pending{opacity:.5;}
+.file-ico{width:18px;text-align:center;font-size:13px;flex-shrink:0;}
+.file-name{flex:1;font-size:11px;font-family:'Consolas',monospace;color:#cbd5e1;}
+.file-status{font-size:10px;text-align:right;min-width:80px;color:#64748b;}
+.file-status.ok{color:#22c55e;}
+.file-status.bad{color:#ef4444;}
+.file-status.dl{color:#00d4ff;}
+.prog-wrap{display:flex;flex-direction:column;gap:5px;}
+.prog-bar{height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#00d4ff,#22c55e);transition:width .3s;}
+.prog-lbl{font-size:10px;color:#64748b;display:flex;justify-content:space-between;}
+.bottom-msg{font-size:11px;color:#64748b;text-align:center;min-height:18px;}
+.bottom-msg.err{color:#ef4444;}
+button:focus{outline:none;}
+.titlebar-pin{
+  -webkit-app-region:no-drag;
+  width:20px;
+  height:20px;
+  border:none;
+  border-radius:3px;
+  background:transparent;
+  color:var(--muted, #7e93a8);
+  font-size:13px;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  opacity:.5;
+  transition:all .18s;
+  outline:none;
+}
+.titlebar-pin:hover{background:rgba(255,255,255,.1);opacity:.85;}
+.titlebar-pin.pinned{color:#f59e0b;opacity:1;outline:none;}
+.titlebar-pin:focus{outline:none;}
+.tb{position:fixed;top:8px;right:8px;display:flex;gap:4px;z-index:999;}
+.tb-min{-webkit-app-region:no-drag;width:22px;height:22px;border:none;border-radius:3px;background:rgba(100,116,139,.15);color:#94a3b8;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.6;transition:all .18s;}
+.tb-min:hover{background:rgba(100,116,139,.3);opacity:1;}
+.tb-cls{-webkit-app-region:no-drag;width:22px;height:22px;border:none;border-radius:3px;background:rgba(239,68,68,.08);color:#ef4444;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;}
+.tb-cls:hover{background:rgba(239,68,68,.22);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.4;}}
+.spin{display:inline-block;animation:pulse 1s infinite;}
+</style></head><body>
+<div class="card">
+  <div>
+    <div class="title">🛡 文件完整性校验</div>
+    <div class="subtitle">正在对比 Gitee 仓库，确保游戏文件完整…</div>
+  </div>
+  <div class="file-list" id="fileList"></div>
+  <div class="prog-wrap">
+    <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div class="prog-lbl"><span id="progLbl">准备中…</span><span id="progPct">0%</span></div>
+  </div>
+  <div class="bottom-msg" id="bottomMsg"><span class="spin">⟳</span> 连接 Gitee…</div>
+</div>
+<script>
+var rows = {};
+function init(files) {
+  var list = document.getElementById('fileList');
+  list.innerHTML = '';
+  files.forEach(function(f) {
+    var div = document.createElement('div');
+    div.className = 'file-row pending';
+    div.id = 'row-' + f;
+    div.innerHTML = '<span class="file-ico">📄</span>'
+      + '<span class="file-name">' + f + '</span>'
+      + '<span class="file-status" id="st-' + f + '">等待中</span>';
+    list.appendChild(div);
+    rows[f] = div;
+  });
+}
+function setRow(f, state, msg) {
+  var row = document.getElementById('row-' + f);
+  var st  = document.getElementById('st-' + f);
+  if (!row || !st) return;
+  row.className = 'file-row ' + state;
+  var ico = state==='ok' ? '✔' : state==='bad' ? '✖' : state==='downloading' ? '⬇' : '⟳';
+  row.querySelector('.file-ico').textContent = ico;
+  st.className = 'file-status ' + (state==='ok'?'ok':state==='bad'?'bad':'dl');
+  st.textContent = msg;
+}
+function setProgress(pct, lbl) {
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progPct').textContent  = Math.round(pct) + '%';
+  document.getElementById('progLbl').textContent  = lbl;
+}
+function setBottom(msg, isErr) {
+  var el = document.getElementById('bottomMsg');
+  el.textContent = msg;
+  el.className = 'bottom-msg' + (isErr ? ' err' : '');
+}
+window.syncAPI = { init:init, setRow:setRow, setProgress:setProgress, setBottom:setBottom };
+var _pinned = false;
+function togglePin() {
+  _pinned = !_pinned;
+  var btn = document.getElementById('btnPin');
+  if (btn) {
+    btn.className = 'titlebar-pin' + (_pinned ? ' pinned' : '');
+    btn.title = _pinned ? '已固定（多窗口共存中，不被点击或切换关闭）' : '固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）';
+    try { btn.blur(); } catch(_) {}
+  }
+  try { if (window.electronAPI && window.electronAPI.setOverlayPinned) window.electronAPI.setOverlayPinned(_pinned); } catch(e) {}
+}
+document.addEventListener('mouseup', function(event) {
+  var button = event.target && event.target.closest ? event.target.closest('button') : null;
+  if (button) setTimeout(function() { try { button.blur() } catch(_) {} }, 0);
+});
+</script>
+<div class="tb">
+  <button class="titlebar-pin" id="btnPin" onclick="togglePin()" title="固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）">📌</button>
+  <button class="tb-min" onclick="if(window.electronAPI)window.electronAPI.minimizeSelf()" title="最小化到任务栏">─</button>
+  <button class="tb-cls" onclick="window.close()" title="关闭后不启动游戏，已下载的文件不影响">✕</button>
+</div>
+</body></html>

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 2,
+  "policy": "exact-official-video-evidence-embedded-into-uclient-fight",
+  "updatedAt": "2026-08-18T01:01:52+08:00",
+  "profiles": [
+    {
+      "videoAssetPath": "Assets/SkillTimeline/Videos/4000/4000.mp4",
+      "sourceVideoSha256": "AAC6EDA7734B244CBC70EBE61F696E925219E70E1556B3D592092FF2E43F7A15",
+      "spineAssetPath": "Assets/SkillTimeline/Spines/4000/4000.prefab",
+      "spineSkeletonSha256": "C25C30048B1AE8E17F330238655909371FCD39A8975302CE28CFAE6B5E9318CA",
+      "nativeSwf": "uclient-cinematics/timeline-video-aac6eda7.swf",
+      "nativeSwfSha256": "F8CA77F297E1269DA5155DAED4046D984A95AB6003A0D509AE40A0E793515FDF",
+      "windows": [
+        { "action": "hidemove", "startSeconds": 2.566666666666667, "endSeconds": 8.566666666666667, "durationSeconds": 6.0, "source": "official Video Track", "frameRate": 30 }
+      ],
+      "actionTiming": {
+        "source": "official U-client Timeline playable and signal tracks",
+        "durationToleranceSeconds": 0.05,
+        "returnMixSeconds": 0.1,
+        "actions": {
+          "attack": { "durationSeconds": 4.2666668892, "hitSeconds": 2.65 },
+          "cp": { "durationSeconds": 4.0, "hitSeconds": 2.55 },
+          "sa": { "durationSeconds": 6.133333683, "hitSeconds": 4.4333333333 },
+          "hidemove": { "durationSeconds": 11.1666669846, "hitSeconds": 9.6, "videoWindow": { "source": "official Video Track", "startSeconds": 2.566666666666667, "endSeconds": 8.566666666666667, "durationSeconds": 6.0 } }
+        }
+      },
+      "evidence": "official U-client SkillTimeline VideoPlayableAsset window"
+    },
+    {
+      "videoAssetPath": "Assets/SkillTimeline/Videos/1400837/1400837.mp4",
+      "sourceVideoSha256": "38EE8F6704F30A79FBF600D0EFC870A99F21568FF3A155ECD781654AA42E721C",
+      "spineAssetPath": "Assets/SkillTimeline/Spines/1400837/1400837.prefab",
+      "spineSkeletonSha256": "A970DEB3BFAE9281DC972AA3193153C73FBA4CBE970E1127ABBD71DA5285563C",
+      "nativeSwf": "uclient-cinematics/timeline-video-38ee8f67.swf",
+      "nativeSwfSha256": "F381F8F49C136D542EFAAB6A43E6BA3CCD1EF30FBA2D001F3DEAB661970C807A",
+      "windows": [
+        { "action": "hidemove", "startSeconds": 4.25, "endSeconds": 10.783333333333333, "durationSeconds": 6.533333333333333, "source": "official Video Track", "frameRate": 30 }
+      ],
+      "actionTiming": {
+        "source": "official U-client Timeline playable and signal tracks",
+        "durationToleranceSeconds": 0.05,
+        "returnMixSeconds": 0.1,
+        "actions": {
+          "appear": { "durationSeconds": 5.000000476837158 },
+          "attack": { "durationSeconds": 7.083333969116213, "hitSeconds": 5.316666666666667 },
+          "cp": { "durationSeconds": 6.000000476837158, "hitSeconds": 4.75 },
+          "sa": { "durationSeconds": 7.1666669845581055, "hitSeconds": 5.166666666666667 },
+          "hidemove": { "durationSeconds": 13.000000953674316, "hitSeconds": 11.55, "videoWindow": { "source": "official Video Track", "startSeconds": 4.25, "endSeconds": 10.783333333333333, "durationSeconds": 6.533333333333333 } }
+        }
+      },
+      "evidence": "official U-client SkillTimeline VideoPlayableAsset window"
+    }
+  ]
+}

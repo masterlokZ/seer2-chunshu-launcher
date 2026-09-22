@@ -1,0 +1,129 @@
+{
+  "name": "seer2-launcher",
+  "version": "1.0.2",
+  "description": "Seer2 Game Launcher",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "obfuscate": "node build-obfuscate.js",
+    "dist": "electron-builder --win nsis --x64",
+    "dist-x64": "electron-builder --win nsis --x64",
+    "dist-x86": "electron-builder --win nsis --ia32 --config package-ia32.json",
+    "dist-dual": "electron-builder --win nsis --x64 --ia32 --config package-dual.json",
+    "build": "npm run obfuscate && npm run dist",
+    "build-x86": "npm run obfuscate && npm run dist-x86",
+    "build-dual": "npm run obfuscate && npm run dist-dual"
+  },
+  "dependencies": {
+    "socks-proxy-agent": "^7.0.0"
+  },
+  "devDependencies": {
+    "electron": "11.5.0",
+    "electron-builder": "^23.6.0",
+    "javascript-obfuscator": "^3.0.0"
+  },
+  "build": {
+    "appId": "com.chunshu.seer2launcher",
+    "productName": "seer2-春树登陆器",
+    "copyright": "Copyright © 2026 春树",
+    "asar": true,
+    "compression": "maximum",
+    "afterPack": "./afterPack.js",
+    "files": [
+      "**/*",
+      "!build-obfuscate.js",
+      "!README.md",
+      "!*.bat",
+      "!index.html",
+      "!package-lock.json",
+      "!node_modules/.cache/**",
+      "!flash/**",
+      "!generate-manifest.js",
+      "!generate-manifest.bat",
+      "!speedhook_ce_ia32.dll",
+      "!dist-build/**",
+      "!dist-build-dual/**",
+      "!BUILD-GUIDE.md",
+      "!icon-source-transparent.png",
+      "!scanner_src.cs",
+      "!speedhook/injector_src.cs",
+      "!speedhook/compile-injector.bat",
+      "!scanner-x86.exe",
+      "!Seer2UClientFtrAtlasConverter-x86.exe",
+      "!uclient-pet-extractor.exe",
+      "!core-net.20260810-before-v4-registry.bak.js",
+      "!uclient-ftr-x86-converter/**",
+      "!uclient-spine-adapter/**",
+      "!uclient-universal-battle-adapter/**",
+      "!uclient-ftr-battle-adapter/**",
+      "!uclient-ftr-battle-template/**",
+      "!uclient-ftr-follow-template/**",
+      "!uclient-video-template/**",
+      "!uclient-spine-template/placeholder.atlas",
+      "!uclient-spine-template/placeholder.json",
+      "!uclient-spine-template/placeholder.skel",
+      "!**/*.as",
+      "!**/*.cpp",
+      "!**/*.h",
+      "!**/*.inc",
+      "!**/*.cs",
+      "!**/*.md",
+      "!**/*.bat"
+    ],
+    "directories": {
+      "output": "dist-build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "icon.ico",
+      "artifactName": "seer2-春树登陆器-${version}-${arch}.${ext}",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "seer2-春树登陆器",
+      "installerIcon": "icon.ico",
+      "uninstallerIcon": "icon.ico",
+      "deleteAppDataOnUninstall": false,
+      "allowElevation": true,
+      "include": "build/installer/delete-old-local-res.nsh"
+    },
+    "asarUnpack": [
+      "**/scanner.ps1",
+      "**/scanner-x64.exe",
+      "**/speedhook_ce_x64.dll",
+      "**/speedhook/ce_injector.exe",
+      "**/uclient-pet-extractor-x64.exe",
+      "**/Seer2UClientFtrAtlasConverter-x64.exe"
+    ],
+    "extraResources": [
+      {
+        "from": "flash",
+        "to": "flash",
+        "filter": [
+          "**/*",
+          "!**/pepflashplayer32*"
+        ]
+      },
+      {
+        "from": "local-res",
+        "to": "../local-res",
+        "filter": [
+          "**/*",
+          "!对战版by_春树.swf"
+        ]
+      }
+    ]
+  }
+}

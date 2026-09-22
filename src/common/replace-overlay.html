@@ -1,0 +1,826 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>请求替换</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{--bg:#0a0e1a;--bdr:rgba(0,212,255,.12);--txt:#e2e8f0;--dim:#64748b;--pri:#00d4ff;--sc:#22c55e;--red:#ef4444;--warn:#f59e0b;--row:#0d1425;}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-family:'Microsoft YaHei','Segoe UI',sans-serif;font-size:11px;display:flex;flex-direction:column;overflow:hidden;user-select:none;}
+.titlebar{height:30px;background:rgba(0,212,255,.06);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:6px;padding:0 10px;-webkit-app-region:drag;flex-shrink:0;}
+.titlebar-txt{font-size:11px;font-weight:600;color:var(--pri);letter-spacing:1px;flex:1;}
+button:focus{outline:none;}
+.titlebar-pin,.titlebar-min,.titlebar-close{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.titlebar-pin{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:transparent;color:var(--muted,#7e93a8);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.5;transition:all .18s;outline:none;}
+.titlebar-pin:hover{background:rgba(255,255,255,.1);opacity:.85;}
+.titlebar-pin.pinned{color:#f59e0b;opacity:1;outline:none;}
+.titlebar-pin:focus{outline:none;}
+.titlebar-min{color:var(--dim);font-size:14px;font-weight:700;background:rgba(100,116,139,.10);opacity:.6;}.titlebar-min:hover{background:rgba(100,116,139,.25);opacity:1;}
+.titlebar-close{background:rgba(239,68,68,.08);color:var(--red);font-size:12px;}.titlebar-close:hover{background:rgba(239,68,68,.22);}
+.toolbar{display:flex;align-items:center;gap:4px;padding:5px 10px;border-bottom:1px solid var(--bdr);flex-shrink:0;flex-wrap:wrap;row-gap:4px;}
+.tbtn{height:24px;padding:0 8px;border:1px solid rgba(255,255,255,.1);border-radius:5px;background:rgba(255,255,255,.04);color:var(--dim);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.tbtn:hover{background:rgba(255,255,255,.1);color:var(--txt);}
+.tbtn:disabled{opacity:.28;cursor:not-allowed;pointer-events:none;}
+.tbtn.add{border-color:rgba(34,197,94,.3);color:var(--sc);}.tbtn.add:hover{background:rgba(34,197,94,.1);}
+.tbtn.del{border-color:rgba(239,68,68,.3);color:var(--red);}.tbtn.del:hover{background:rgba(239,68,68,.1);}
+.tbtn.cp{border-color:rgba(0,212,255,.25);color:var(--pri);}.tbtn.cp:hover{background:rgba(0,212,255,.1);}
+.tbtn.imp{border-color:rgba(0,212,255,.25);color:var(--pri);}.tbtn.imp:hover{background:rgba(0,212,255,.1);}
+.tbtn.move{border-color:rgba(245,158,11,.25);color:var(--warn);}.tbtn.move:hover{background:rgba(245,158,11,.1);}
+.tbtn.undo{border-color:rgba(148,163,184,.3);color:#94a3b8;}.tbtn.undo:hover{background:rgba(148,163,184,.1);}
+.tbtn.en-all,.tbtn.en-sel{border-color:rgba(34,197,94,.3);color:var(--sc);}.tbtn.en-all:hover,.tbtn.en-sel:hover{background:rgba(34,197,94,.1);}
+.tbtn.dis-all,.tbtn.dis-sel{border-color:rgba(239,68,68,.3);color:var(--red);}.tbtn.dis-all:hover,.tbtn.dis-sel:hover{background:rgba(239,68,68,.1);}
+.toolbar-sep{width:1px;height:16px;background:var(--bdr);margin:0 1px;flex-shrink:0;}
+.table-wrap{flex:1;overflow-y:auto;overflow-x:hidden;min-height:0;}
+table{width:100%;border-collapse:collapse;table-layout:fixed;}
+thead th{position:sticky;top:0;background:#0a0e1a;border-bottom:1px solid var(--bdr);padding:5px 8px;text-align:left;font-size:10px;font-weight:600;color:var(--dim);letter-spacing:.5px;z-index:2;}
+th.col-drag{width:18px;}th.col-idx{width:42px;}th.col-chk{width:38px;}th.col-en{width:50px;}th.col-url{width:42%;}th.col-file{}th.col-act{width:54px;}
+tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s;cursor:pointer;}
+tbody tr:hover{background:rgba(255,255,255,.03);}
+tbody tr.selected{background:rgba(0,212,255,.07);}
+tbody tr.drag-over-before{border-top:2px solid var(--pri);}
+tbody tr.drag-over-after{border-bottom:2px solid var(--pri);}
+tbody tr.dragging{opacity:.35;}
+td{padding:5px 8px;vertical-align:middle;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+td.col-chk,td.col-en{text-align:center;padding:5px 4px;overflow:visible;text-overflow:clip;cursor:default;}
+td.col-idx{text-align:center;color:var(--dim);font-size:10px;font-family:Consolas,monospace;overflow:visible;text-overflow:clip;}
+td.col-drag{width:18px;text-align:center;color:var(--dim);font-size:12px;opacity:.45;cursor:grab;padding:5px 2px;}td.col-drag:hover{opacity:.95;}
+input[type=checkbox]{width:13px;height:13px;accent-color:var(--pri);cursor:pointer;}
+.chk-hit,.tog-hit{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;vertical-align:middle;cursor:default;}
+.tog-hit{width:36px;}
+.tog{position:relative;display:inline-block;width:28px;height:15px;cursor:pointer;vertical-align:middle;}
+.tog input{opacity:0;width:0;height:0;position:absolute;}
+.tog-slider{position:absolute;inset:0;border-radius:8px;background:rgba(255,255,255,.12);transition:background .2s;}
+.tog-slider::before{content:'';position:absolute;width:11px;height:11px;left:2px;top:2px;border-radius:50%;background:#64748b;transition:transform .2s,background .2s;}
+.tog input:checked + .tog-slider{background:rgba(34,197,94,.25);}
+.tog input:checked + .tog-slider::before{transform:translateX(13px);background:var(--sc);}
+.cell-url{font-family:Consolas,monospace;font-size:10px;color:#7ec8f7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cell-url.group{font-family:inherit;font-size:11px;color:#f0abfc;font-weight:700;}
+.cell-file{font-family:Consolas,monospace;font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cell-file.ok{color:rgba(34,197,94,.7);}.cell-file.bad{color:rgba(239,68,68,.7);}.cell-file.net{color:#a78bfa;}
+.row-del,.row-edit{width:22px;height:22px;border:none;background:transparent;color:var(--dim);cursor:pointer;font-size:12px;border-radius:3px;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;}
+td.col-act{display:flex;align-items:center;gap:6px;}
+.row-del:hover{background:rgba(239,68,68,.15);color:var(--red);}
+.row-edit:hover{background:rgba(0,212,255,.15);color:var(--pri);}
+.add-form{border-top:1px solid var(--bdr);padding:8px 10px;display:none;flex-direction:column;gap:6px;flex-shrink:0;background:#0b0f1c;}
+.add-form.visible{display:flex;}
+.add-row{display:flex;gap:6px;align-items:center;}
+.add-label{font-size:10px;color:var(--dim);width:52px;flex-shrink:0;}
+.add-input{flex:1;height:26px;background:rgba(0,0,0,.4);border:1px solid rgba(0,212,255,.2);border-radius:5px;color:var(--txt);font-size:11px;font-family:Consolas,monospace;padding:0 8px;outline:none;}
+.add-input:focus{border-color:rgba(0,212,255,.5);background:rgba(0,212,255,.04);}
+.add-input.err{border-color:rgba(239,68,68,.5);}
+.add-hint{font-size:9px;color:var(--dim);margin-top:-2px;padding-left:58px;opacity:.7;}
+.add-browse{height:26px;padding:0 9px;border:1px solid rgba(0,212,255,.2);border-radius:5px;background:rgba(0,212,255,.06);color:var(--pri);font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0;transition:all .15s;}
+.add-browse:hover{background:rgba(0,212,255,.15);}
+.map-btn{height:26px;padding:0 9px;border:1px solid rgba(34,197,94,.3);border-radius:5px;background:rgba(34,197,94,.07);color:var(--sc);font-size:10px;cursor:pointer;font-family:inherit;flex-shrink:0;transition:all .15s;display:none;}
+.map-btn.show{display:inline-flex;align-items:center;}
+.map-btn:hover{background:rgba(34,197,94,.16);}
+.add-btns{display:flex;gap:6px;justify-content:flex-end;}
+.add-confirm{height:26px;padding:0 16px;border:none;border-radius:5px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#fff;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}
+.add-cancel{height:26px;padding:0 12px;border:1px solid rgba(255,255,255,.12);border-radius:5px;background:transparent;color:var(--dim);font-size:11px;cursor:pointer;font-family:inherit;}
+.add-cancel:hover{color:var(--txt);}
+.sbar{height:22px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;background:rgba(10,14,26,.85);border-top:1px solid var(--bdr);font-size:9px;color:var(--dim);flex-shrink:0;}
+.sdot{width:6px;height:6px;border-radius:50%;margin-right:5px;display:inline-block;background:var(--dim);}
+.sdot.ok{background:var(--sc);box-shadow:0 0 5px var(--sc);}.sdot.idle{background:var(--dim);}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--dim);padding:40px 0;}
+.empty-ico{font-size:28px;opacity:.4;}.empty-txt{font-size:11px;}
+.toast{position:fixed;bottom:36px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(15,20,40,.95);border:1px solid var(--bdr);border-radius:8px;padding:7px 18px;font-size:10px;color:var(--txt);pointer-events:none;opacity:0;transition:opacity .2s,transform .2s;z-index:9999;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.ok{border-color:rgba(34,197,94,.4);color:var(--sc);}.toast.bad{border-color:rgba(239,68,68,.4);color:var(--red);}.toast.undo{border-color:rgba(148,163,184,.3);color:#94a3b8;}
+.ctx-menu{position:fixed;z-index:99999;background:#131929;border:1px solid rgba(0,212,255,.25);border-radius:6px;padding:4px 0;min-width:115px;box-shadow:0 4px 20px rgba(0,0,0,.7);font-size:11px;}
+.ctx-item{padding:7px 16px;cursor:pointer;color:#e2e8f0;transition:background .1s;white-space:nowrap;}
+.ctx-item:hover{background:rgba(0,212,255,.12);}
+.ctx-item.disabled{opacity:.3;cursor:not-allowed;pointer-events:none;}
+.ctx-item.danger{color:var(--red);}.ctx-item.danger:hover{background:rgba(239,68,68,.1);}
+.ctx-sep{height:1px;background:rgba(255,255,255,.06);margin:3px 0;}
+::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-thumb{background:rgba(0,212,255,.18);border-radius:2px;}
+</style>
+</head><body>
+
+<div class="titlebar">
+  <span style="font-size:13px">🔀</span>
+  <span class="titlebar-txt">请 求 替 换</span>
+  <button class="titlebar-pin" id="btnPin" onclick="togglePin()" title="固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）">📌</button>
+  <button class="titlebar-min" onclick="if(window.electronAPI)window.electronAPI.minimizeSelf()" title="最小化">─</button>
+  <button class="titlebar-close" onclick="window.close()">✕</button>
+</div>
+
+<div class="toolbar">
+  <button class="tbtn add"  onclick="showAddForm()">＋ 添加</button>
+  <button class="tbtn del"  id="btnDel"   onclick="deleteSelected()">🗑 删除选中</button>
+  <button class="tbtn cp"   id="btnCopy"  onclick="copySelected()">复制选中</button>
+  <button class="tbtn cp"   id="btnPaste" onclick="pasteSelected()">粘贴</button>
+  <button class="tbtn cp"   id="btnCut"   onclick="cutSelected()">剪切选中</button>
+  <div class="toolbar-sep"></div>
+  <button class="tbtn"      onclick="selectAll()">全选</button>
+  <button class="tbtn"      onclick="invertSel()">反选</button>
+  <button class="tbtn"      onclick="clearSel()">取消</button>
+  <button class="tbtn move" id="btnTop"    onclick="moveTop()">置顶</button>
+  <button class="tbtn move" id="btnBottom" onclick="moveBottom()">置底</button>
+  <div class="toolbar-sep"></div>
+  <button class="tbtn undo" id="btnUndo"  onclick="undoAction()" title="撤销 (Ctrl+Z)">↩ 撤销</button>
+  <div class="toolbar-sep"></div>
+  <button class="tbtn en-all"  onclick="enableAll()"         title="将所有规则设为启用">一键开启</button>
+  <button class="tbtn dis-all" onclick="disableAll()"        title="将所有规则设为禁用">一键关闭</button>
+  <button class="tbtn en-sel"  id="btnEnSel"  onclick="enableSelected()"  title="将选中规则设为启用">选中开启</button>
+  <button class="tbtn dis-sel" id="btnDisSel" onclick="disableSelected()" title="将选中规则设为禁用">选中关闭</button>
+  <div class="toolbar-sep"></div>
+  <button class="tbtn imp" onclick="importRules()">⬇ 导入</button>
+  <button class="tbtn imp" onclick="exportRules()">⬆ 导出</button>
+  <div class="toolbar-sep"></div>
+  <button class="tbtn" onclick="addPreset('release5')" title="快速添加 5星放生替换">快速＋5星放生</button>
+  <button class="tbtn" onclick="addPreset('dll')" title="快速添加 Seer2CoreDLL 替换">快速＋dll</button>
+</div>
+
+<div class="table-wrap" id="tableWrap">
+  <table>
+    <thead>
+      <tr>
+        <th class="col-drag"></th>
+        <th class="col-idx">#</th>
+        <th class="col-chk"><input type="checkbox" id="chkAll" onclick="toggleAll(this.checked)" title="全选/全不选"></th>
+        <th class="col-en">启用</th>
+        <th class="col-url">拦截 URL</th>
+        <th class="col-file">替换目标（文件/URL）</th>
+        <th class="col-act"></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty" id="emptyState">
+    <div class="empty-ico">🔀</div>
+    <div class="empty-txt">暂无替换规则，点击"添加"新建</div>
+  </div>
+</div>
+
+<div class="add-form" id="addForm">
+  <div class="add-row">
+    <span class="add-label">URL</span>
+    <input class="add-input" id="addUrl" placeholder="http://43.138.190.6/seer2/dll/Seer2CoreDLL.swf" spellcheck="false" oninput="onUrlInput(this.value)">
+    <button class="map-btn" id="btnMapOfficial" onclick="doMapOfficial()" title="将改服 URL 自动映射为官服地址填入下方替换目标">🔀 映射官服</button>
+  </div>
+  <div class="add-row">
+    <span class="add-label">自动检测</span>
+    <input class="add-input" id="addFile" placeholder=".\\文件名.swf  |  绝对路径  |  http://...  |  留空=直接使用网络资源" spellcheck="false">
+    <button class="add-browse" onclick="browseFile()">浏览…</button>
+  </div>
+  <div class="add-hint">💡 以 .\ 开头的路径相对于程序目录下的 <b style="color:var(--pri)">local-res/</b> 文件夹 &nbsp;|&nbsp; local-res 内文件会自动存为 .\xxx &nbsp;|&nbsp; 若 URL 为官服 <b style="color:var(--sc)">seer2.61.com</b> 资源且不填替换目标，自动映射为改服路径</div>
+  <div class="add-btns">
+    <button class="add-cancel" onclick="hideAddForm()">取消</button>
+    <button class="add-confirm" id="btnConfirm" onclick="confirmAdd()">确认添加</button>
+  </div>
+</div>
+
+<div class="sbar">
+  <span><span class="sdot" id="sdot"></span><span id="stxt">就绪</span></span>
+  <span id="scount" style="font-family:monospace"></span>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+var api = window.electronAPI;
+var _rules   = [];
+var _sel     = new Set();
+var _lastSelIdx = -1;
+var _lastEnableIdx = -1;
+var _pinned  = false;
+var _editIdx = -1;
+var _entryCb = [];
+
+// ── 撤销栈 ─────────────────────────────────────────────────────────────────
+// 每次改变 _rules 时先调用 _pushUndo() 保存当前状态快照
+var _undoStack = [];          // [{rules: [...], desc: '...'}]
+var MAX_UNDO   = 50;
+
+function _pushUndo(desc) {
+  _undoStack.push({ rules: _rules.map(function(r){ return Object.assign({},r); }), desc: desc || '操作' });
+  if (_undoStack.length > MAX_UNDO) _undoStack.shift();
+}
+function undoAction() {
+  if (_undoStack.length === 0) { toast('无可撤销的操作','bad'); return; }
+  var snap = _undoStack.pop();
+  _rules = snap.rules.map(function(r){ return Object.assign({},r); });
+  _sel.clear();
+  save(); render();
+  toast('已撤销：' + snap.desc, 'undo');
+}
+
+var PRESETS = {
+  embed:    'http://43.138.190.6/seer2/module/app/GadSelectPetPanel.swf',
+  release5: 'http://43.138.190.6/seer2/module/app/NewPetStoragePanel.swf',
+  dll:      'http://43.138.190.6/seer2/dll/Seer2CoreDLL.swf',
+};
+// 快速+xxx 跟随当前线路：切换线路后更新 PRESETS 中的 rootUrl
+var _currentRootUrl = 'http://43.138.190.6/seer2';
+var _PRESET_PATHS = {
+  embed:    '/module/app/GadSelectPetPanel.swf',
+  release5: '/module/app/NewPetStoragePanel.swf',
+  dll:      '/dll/Seer2CoreDLL.swf',
+};
+function _rebuildPresets() {
+  var root = _currentRootUrl || 'http://43.138.190.6/seer2';
+  PRESETS.embed    = root + _PRESET_PATHS.embed;
+  PRESETS.release5 = root + _PRESET_PATHS.release5;
+  PRESETS.dll      = root + _PRESET_PATHS.dll;
+}
+var BLOCKED_URLS = [
+  '43.138.190.6/seer2/config/dyn-client-config.xml',
+  'o1.733702.xyz/seer2/config/dyn-client-config.xml',
+  'seer2.chunshu/seer2/config/dyn-client-config.xml'
+];
+function _isBlockedUrl(url) {
+  var norm = (url||'').replace(/^https?:\/\//i,'').toLowerCase().replace(/\/$/,'');
+  return BLOCKED_URLS.some(function(b){ return norm===b; });
+}
+function normPath(p) {
+  p=(p||'').trim();
+  if((p.startsWith('"')&&p.endsWith('"'))||(p.startsWith("'")&&p.endsWith("'"))) p=p.slice(1,-1).trim();
+  if(/^https?:\/\//i.test(p)) return p;
+  if(p.indexOf('./')===0||p.indexOf('.\\')===0) return '.\\'+p.slice(2).replace(/[\/\\]+/g,'\\');
+  return p;
+}
+function normUrl(u) {
+  u=(u||'').trim();
+  if(!/^https?:\/\//i.test(u)&&u) u='http://'+u;
+  return u;
+}
+function _isRelPath(f){ return f && (f.startsWith('./')||f.startsWith('.\\')); }
+function _isNetUrl(f) { return f && /^https?:\/\//i.test(f); }
+
+// ── 改服 → 官服 URL 映射（映射官服按钮）──────────────────────────────────
+// 规则：http://43.138.190.6/seer2/res/... → http://seer2.61.com/res/...
+function _gameUrlToOfficial(url) {
+  var m = url.match(/^https?:\/\/43\.138\.190\.6\/seer2(\/.*)?$/i);
+  if (!m) return null;
+  return 'http://seer2.61.com' + (m[1] || '/');
+}
+
+// 当 URL 输入框内容变化时，决定"映射官服"按钮是否可见
+function onUrlInput(val) {
+  var btn = document.getElementById('btnMapOfficial');
+  if (!btn) return;
+  var trimmed = (val || '').trim();
+  var officialUrl = _gameUrlToOfficial(normUrl(trimmed));
+  if (officialUrl) {
+    btn.classList.add('show');
+    btn.title = '点击将官服地址 ' + officialUrl + ' 填入替换目标';
+  } else {
+    btn.classList.remove('show');
+  }
+}
+
+// 点击"映射官服"按钮：把官服地址填入"自动检测"字段
+function doMapOfficial() {
+  var urlVal = (document.getElementById('addUrl').value || '').trim();
+  var officialUrl = _gameUrlToOfficial(normUrl(urlVal));
+  if (!officialUrl) { toast('无法映射：URL 不是改服地址格式', 'bad'); return; }
+  document.getElementById('addFile').value = officialUrl;
+  document.getElementById('addFile').classList.remove('err');
+  toast('已映射：' + officialUrl, 'ok');
+}
+
+// ── 置顶/置底 可用性 ────────────────────────────────────────────────────────
+function _canMoveTop(){
+  if(_sel.size===0) return false;
+  var s=Array.from(_sel).sort(function(a,b){return a-b;});
+  return !s.every(function(v,i){return v===i;});
+}
+function _canMoveBottom(){
+  if(_sel.size===0) return false;
+  var s=Array.from(_sel).sort(function(a,b){return a-b;});
+  var n=s.length,total=_rules.length;
+  return !s.every(function(v,i){return v===total-n+i;});
+}
+
+function buildRenderEntries(){return _rules.map(function(_,i){return {type:'rule',idx:i};});}
+
+// ── render ─────────────────────────────────────────────────────────────────
+function render(){
+  var tbody=document.getElementById('tbody');
+  var empty=document.getElementById('emptyState');
+  empty.style.display=_rules.length?'none':'flex';
+  tbody.innerHTML='';
+  var entries=buildRenderEntries();
+  entries.forEach(function(entry,viewIdx){
+    var i=entry.idx;
+    var rule=_rules[i];
+    var tr=document.createElement('tr');
+    tr.className=_sel.has(i)?'selected':'';
+    tr.draggable=true; tr.dataset.idx=i;
+
+    // drag handle
+    var tdDrag=document.createElement('td'); tdDrag.className='col-drag'; tdDrag.innerHTML='⠿'; tdDrag.title='拖拽调整顺序';
+    tr.appendChild(tdDrag);
+
+    // 序号
+    var tdIdx=document.createElement('td'); tdIdx.className='col-idx';
+    tdIdx.textContent=viewIdx+1; tr.appendChild(tdIdx);
+
+    // checkbox
+    var tdChk=document.createElement('td'); tdChk.className='col-chk';
+    tdChk.addEventListener('click',function(e){e.stopPropagation();});
+    tdChk.addEventListener('dblclick',function(e){e.stopPropagation();});
+    var chkHit=document.createElement('span'); chkHit.className='chk-hit';
+    chkHit.addEventListener('click',function(e){e.stopPropagation(); if(e.target.tagName==='INPUT') return; handleRuleSelect(i,!_sel.has(i),e.shiftKey);});
+    chkHit.addEventListener('dblclick',function(e){e.stopPropagation();});
+    var chk=document.createElement('input'); chk.type='checkbox'; chk.checked=_sel.has(i);
+    chk.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();handleRuleSelect(i,!_sel.has(i),e.shiftKey);});
+    chkHit.appendChild(chk); tdChk.appendChild(chkHit); tr.appendChild(tdChk);
+
+    // toggle
+    var tdEn=document.createElement('td'); tdEn.className='col-en';
+    tdEn.addEventListener('click',function(e){e.stopPropagation();});
+    tdEn.addEventListener('dblclick',function(e){e.stopPropagation();});
+    var togHit=document.createElement('span'); togHit.className='tog-hit';
+    togHit.addEventListener('click',function(e){e.stopPropagation();});
+    togHit.addEventListener('dblclick',function(e){e.stopPropagation();});
+    var lbl=document.createElement('label'); lbl.className='tog';
+    lbl.addEventListener('click',function(e){e.stopPropagation();});
+    var inp=document.createElement('input'); inp.type='checkbox'; inp.checked=!!rule.enabled;
+    inp.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();handleRuleEnable(i,!rule.enabled,e.shiftKey);});
+    inp.addEventListener('change',function(){
+      _pushUndo(rule.enabled?'禁用规则':'启用规则');
+      _rules[i].enabled=this.checked; save(); renderStatus();
+    });
+    var sp=document.createElement('span'); sp.className='tog-slider';
+    lbl.appendChild(inp); lbl.appendChild(sp); togHit.appendChild(lbl); tdEn.appendChild(togHit); tr.appendChild(tdEn);
+
+    // url
+    var tdUrl=document.createElement('td');
+    var dUrl=document.createElement('div'); dUrl.className='cell-url';
+    dUrl.textContent=rule.label||rule.url||''; dUrl.title=rule.label?(rule.label+'：'+(rule.url||'')):(rule.url||''); tdUrl.appendChild(dUrl); tr.appendChild(tdUrl);
+
+    // file
+    var tdFile=document.createElement('td');
+    var dFile=document.createElement('div'); dFile.className='cell-file';
+    if(rule.label&&/^官服/.test(rule.label)){
+      dFile.textContent='官服资源（按当前线路）'; dFile.title=rule.file||rule.url||''; dFile.classList.add('net');
+    } else if(rule.file===rule.url){
+      dFile.textContent='[网络资源]'; dFile.title='直接使用: '+rule.url; dFile.classList.add('ok');
+    } else if(_isNetUrl(rule.file)){
+      dFile.textContent='[网络: '+rule.file+']'; dFile.title='网络URL: '+rule.file; dFile.classList.add('net');
+    } else if(_isRelPath(rule.file)){
+      dFile.textContent=rule.file; dFile.title='相对 local-res/: '+rule.file; dFile.classList.add('ok');
+    } else {
+      dFile.textContent=rule.file||''; dFile.title=rule.file||'';
+      dFile.classList.add(rule.file?'ok':'bad');
+    }
+    tdFile.appendChild(dFile); tr.appendChild(tdFile);
+
+    // actions
+    var tdAct=document.createElement('td'); tdAct.className='col-act';
+    var btnEdit=document.createElement('button'); btnEdit.className='row-edit'; btnEdit.title='编辑'; btnEdit.textContent='✎';
+    btnEdit.addEventListener('click',(function(idx){return function(e){e.stopPropagation();showEditForm(idx);};})(i));
+    var btnDel=document.createElement('button'); btnDel.className='row-del'; btnDel.title='删除'; btnDel.textContent='✕';
+    btnDel.addEventListener('click',(function(idx){return function(e){e.stopPropagation();_pushUndo('删除条目');deleteSingle(idx);};})(i));
+    tdAct.appendChild(btnEdit); tdAct.appendChild(btnDel); tr.appendChild(tdAct);
+
+    // row click
+    tr.addEventListener('click',function(e){
+      if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON') return;
+      if(e.target.closest&&e.target.closest('.col-chk,.col-en,.chk-hit,.tog-hit')) return;
+      if(e.target.closest&&e.target.closest('.tog')) return;
+      handleRuleSelect(i,!_sel.has(i),e.shiftKey);
+    });
+    tr.addEventListener('dblclick',(function(idx){return function(e){
+      if(e.target.tagName==='INPUT'||e.target.tagName==='BUTTON') return;
+      if(e.target.closest&&e.target.closest('.col-chk,.col-en,.chk-hit,.tog-hit')) return;
+      if(e.target.closest&&e.target.closest('.tog')) return;
+      showEditForm(idx);
+    };})(i));
+
+    // right-click
+    tr.addEventListener('contextmenu',(function(idx){return function(e){
+      e.preventDefault();
+      if(!_sel.has(idx)){_sel.clear();_sel.add(idx);}
+      render(); showRowCtxMenu(e);
+    };})(i));
+
+    // drag & drop
+    tr.addEventListener('dragstart',(function(idx){return function(e){
+      _dragSrcIndices=_sel.has(idx)?Array.from(_sel).sort(function(a,b){return a-b;}):[idx];
+      e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain','drag');
+      setTimeout(function(){
+        document.querySelectorAll('tr.dragging').forEach(function(r){r.classList.remove('dragging');});
+        _dragSrcIndices.forEach(function(di){
+          var row=document.querySelector('#tbody tr[data-idx="'+di+'"]'); if(row) row.classList.add('dragging');
+        });
+      },0);
+    };})(i));
+    tr.addEventListener('dragend',function(){
+      document.querySelectorAll('tr.dragging,tr.drag-over-before,tr.drag-over-after').forEach(function(r){
+        r.classList.remove('dragging','drag-over-before','drag-over-after');
+      }); _dragSrcIndices=null;
+    });
+    tr.addEventListener('dragover',(function(idx){return function(e){
+      if(!_dragSrcIndices||_dragSrcIndices.includes(idx)) return;
+      e.preventDefault(); e.dataTransfer.dropEffect='move';
+      document.querySelectorAll('tr.drag-over-before,tr.drag-over-after').forEach(function(r){
+        r.classList.remove('drag-over-before','drag-over-after');
+      });
+      var rect=tr.getBoundingClientRect();
+      if(e.clientY<rect.top+rect.height/2) tr.classList.add('drag-over-before');
+      else tr.classList.add('drag-over-after');
+    };})(i));
+    tr.addEventListener('dragleave',function(){ tr.classList.remove('drag-over-before','drag-over-after'); });
+    tr.addEventListener('drop',(function(dropIdx){return function(e){
+      e.preventDefault(); tr.classList.remove('drag-over-before','drag-over-after');
+      if(!_dragSrcIndices||_dragSrcIndices.includes(dropIdx)) return;
+      var rect=tr.getBoundingClientRect();
+      _applyDrop(dropIdx, e.clientY<rect.top+rect.height/2);
+    };})(i));
+
+    tbody.appendChild(tr);
+  });
+
+  var chkAll=document.getElementById('chkAll');
+  chkAll.checked=_rules.length>0&&_sel.size===_rules.length;
+  chkAll.indeterminate=_sel.size>0&&_sel.size<_rules.length;
+
+  document.getElementById('btnDel').disabled=!(_sel.size>0);
+  document.getElementById('btnCopy').disabled=!(_sel.size>0);
+  document.getElementById('btnCut').disabled=!(_sel.size>0);
+  document.getElementById('btnPaste').disabled=_entryCb.length===0;
+  document.getElementById('btnTop').disabled=!_canMoveTop();
+  document.getElementById('btnBottom').disabled=!_canMoveBottom();
+  document.getElementById('btnUndo').disabled=_undoStack.length===0;
+  document.getElementById('btnEnSel').disabled=!(_sel.size>0);
+  document.getElementById('btnDisSel').disabled=!(_sel.size>0);
+  renderStatus();
+}
+
+function renderStatus(){
+  var en=_rules.filter(function(r){return r.enabled;}).length;
+  document.getElementById('sdot').className='sdot '+(en>0?'ok':'idle');
+  document.getElementById('stxt').textContent=en>0?en+' 条规则生效中（同URL仅首条启用生效）':'所有规则已禁用';
+  document.getElementById('scount').textContent=_rules.length?(_rules.length+' 条规则')+(_sel.size?'，已选 '+_sel.size+' 条，撤销栈 '+_undoStack.length:'，撤销栈 '+_undoStack.length):'';
+}
+
+// ── 拖拽 ────────────────────────────────────────────────────────────────────
+var _dragSrcIndices=null;
+function _applyDrop(dropIdx,insertBefore){
+  var src=_dragSrcIndices;
+  if(!src||!src.length) return;
+  _pushUndo('拖拽排序');
+  var dragged=src.map(function(di){return _rules[di];});
+  var rest=_rules.filter(function(_,i){return!src.includes(i);});
+  var pos=0,counted=0;
+  for(var k=0;k<_rules.length;k++){
+    if(src.includes(k)) continue;
+    if(k===dropIdx){pos=counted;break;} counted++;
+  }
+  var ip=insertBefore?pos:pos+1;
+  rest.splice(ip,0,...dragged);
+  _rules=rest; _sel.clear();
+  for(var j=ip;j<ip+dragged.length;j++) _sel.add(j);
+  _dragSrcIndices=null; save(); render();
+}
+
+// ── selection ────────────────────────────────────────────────────────────────
+function applyRuleRange(toIdx, selected) {
+  if (_lastSelIdx < 0 || toIdx < 0 || toIdx >= _rules.length) return false;
+  var from = Math.min(_lastSelIdx, toIdx);
+  var to = Math.max(_lastSelIdx, toIdx);
+  for (var i = from; i <= to; i++) {
+    if (selected) _sel.add(i);
+    else _sel.delete(i);
+  }
+  return true;
+}
+function handleRuleSelect(idx, selected, shiftKey) {
+  if (shiftKey && applyRuleRange(idx, selected)) {
+    _lastSelIdx = idx;
+    render();
+    return;
+  }
+  if (selected) _sel.add(idx);
+  else _sel.delete(idx);
+  _lastSelIdx = idx;
+  render();
+}
+function applyEnableRange(toIdx, enabled) {
+  if (_lastEnableIdx < 0 || toIdx < 0 || toIdx >= _rules.length) return false;
+  var from = Math.min(_lastEnableIdx, toIdx);
+  var to = Math.max(_lastEnableIdx, toIdx);
+  for (var i = from; i <= to; i++) {
+    if (_rules[i]) _rules[i].enabled = enabled;
+  }
+  return true;
+}
+function handleRuleEnable(idx, enabled, shiftKey) {
+  _pushUndo(enabled ? '鍚敤瑙勫垯' : '绂佺敤瑙勫垯');
+  if (!(shiftKey && applyEnableRange(idx, enabled))) {
+    if (_rules[idx]) _rules[idx].enabled = enabled;
+  }
+  _lastEnableIdx = idx;
+  save();
+  render();
+}
+function selectAll()  { _rules.forEach(function(_,i){_sel.add(i);}); _lastSelIdx=-1; render(); }
+function clearSel()   { _sel.clear(); _lastSelIdx=-1; render(); }
+function invertSel()  { _rules.forEach(function(_,i){if(_sel.has(i))_sel.delete(i);else _sel.add(i);}); _lastSelIdx=-1; render(); }
+function toggleAll(v) { if(v)selectAll();else clearSel(); }
+
+// ── 置顶/置底 ────────────────────────────────────────────────────────────────
+function moveTop(){
+  if(!_canMoveTop()) return; _pushUndo('置顶');
+  var sorted=Array.from(_sel).sort(function(a,b){return a-b;});
+  var sel=sorted.map(function(i){return _rules[i];});
+  var rest=_rules.filter(function(_,i){return!_sel.has(i);});
+  _rules=sel.concat(rest); _sel.clear(); sel.forEach(function(_,i){_sel.add(i);});
+  save(); render(); toast('已置顶','ok');
+}
+function moveBottom(){
+  if(!_canMoveBottom()) return; _pushUndo('置底');
+  var sorted=Array.from(_sel).sort(function(a,b){return a-b;});
+  var sel=sorted.map(function(i){return _rules[i];});
+  var rest=_rules.filter(function(_,i){return!_sel.has(i);});
+  _rules=rest.concat(sel); _sel.clear();
+  for(var i=_rules.length-sel.length;i<_rules.length;i++) _sel.add(i);
+  save(); render(); toast('已置底','ok');
+}
+
+// ── 条目剪贴板 ────────────────────────────────────────────────────────────────
+function copySelected(){
+  if(_sel.size===0){toast('请先选择条目','bad');return;}
+  _entryCb=Array.from(_sel).sort(function(a,b){return a-b;}).map(function(i){return Object.assign({},_rules[i]);});
+  render(); toast('已复制 '+_entryCb.length+' 条','ok');
+}
+function cutSelected(){
+  if(_sel.size===0){toast('请先选择条目','bad');return;}
+  _pushUndo('剪切条目');
+  var s=Array.from(_sel).sort(function(a,b){return a-b;});
+  _entryCb=s.map(function(i){return Object.assign({},_rules[i]);});
+  s.slice().reverse().forEach(function(i){_rules.splice(i,1);});
+  _sel.clear(); save(); render(); toast('已剪切 '+_entryCb.length+' 条','ok');
+}
+function pasteSelected(){
+  if(_entryCb.length===0){toast('剪贴板为空','bad');return;}
+  _pushUndo('粘贴条目');
+  var after=_sel.size>0?Math.max.apply(null,Array.from(_sel)):_rules.length-1;
+  var pos=Math.min(after+1,_rules.length);
+  var fresh=_entryCb.map(function(r){return Object.assign({},r);});
+  _rules.splice.apply(_rules,[pos,0].concat(fresh));
+  _sel.clear(); for(var i=pos;i<pos+fresh.length;i++) _sel.add(i);
+  save(); render(); toast('已粘贴 '+fresh.length+' 条','ok');
+}
+
+// ── 批量启用/禁用 ─────────────────────────────────────────────────────────────
+function enableAll(){
+  if(_rules.length===0){toast('没有规则','bad');return;}
+  _pushUndo('一键开启');
+  _rules.forEach(function(r){r.enabled=true;});
+  save(); render(); toast('已全部开启','ok');
+}
+function disableAll(){
+  if(_rules.length===0){toast('没有规则','bad');return;}
+  _pushUndo('一键关闭');
+  _rules.forEach(function(r){r.enabled=false;});
+  save(); render(); toast('已全部关闭','ok');
+}
+function enableSelected(){
+  if(_sel.size===0){toast('请先选择条目','bad');return;}
+  _pushUndo('选中开启');
+  _sel.forEach(function(i){if(_rules[i])_rules[i].enabled=true;});
+  save(); render(); toast('已开启选中 '+_sel.size+' 条','ok');
+}
+function disableSelected(){
+  if(_sel.size===0){toast('请先选择条目','bad');return;}
+  _pushUndo('选中关闭');
+  _sel.forEach(function(i){if(_rules[i])_rules[i].enabled=false;});
+  save(); render(); toast('已关闭选中 '+_sel.size+' 条','ok');
+}
+
+// ── save ──────────────────────────────────────────────────────────────────────
+function save(){
+  if(!api) return;
+  api.setReplaceRules(_rules).then(function(r){if(!r||!r.ok)toast('保存失败','bad');});
+}
+
+// ── delete ────────────────────────────────────────────────────────────────────
+function deleteSingle(i){ _rules.splice(i,1); _sel.clear(); save(); render(); toast('已删除','ok'); }
+function deleteSelected(){
+  if(_sel.size===0){toast('请先选择要删除的条目','bad');return;}
+  _pushUndo('删除 '+_sel.size+' 条');
+  Array.from(_sel).sort(function(a,b){return b-a;}).forEach(function(i){_rules.splice(i,1);});
+  _sel.clear(); save(); render(); toast('已删除','ok');
+}
+
+// ── add / edit form ───────────────────────────────────────────────────────────
+function showAddForm(presetUrl){
+  _editIdx=-1;
+  document.getElementById('addUrl').value=presetUrl||'';
+  document.getElementById('addFile').value='';
+  ['addUrl','addFile'].forEach(function(id){document.getElementById(id).classList.remove('err');});
+  document.getElementById('btnConfirm').textContent='确认添加';
+  document.getElementById('addForm').classList.add('visible');
+  onUrlInput(presetUrl||''); // 初始化"映射官服"按钮状态
+  document.getElementById(presetUrl?'addFile':'addUrl').focus();
+}
+function hideAddForm(){ document.getElementById('addForm').classList.remove('visible'); _editIdx=-1; var b=document.getElementById('btnMapOfficial'); if(b) b.classList.remove('show'); }
+function showEditForm(i){
+  _editIdx=i; var rule=_rules[i];
+  document.getElementById('addUrl').value=rule.url||'';
+  document.getElementById('addFile').value=(!rule.file||rule.file===rule.url)?'':rule.file;
+  ['addUrl','addFile'].forEach(function(id){document.getElementById(id).classList.remove('err');});
+  document.getElementById('btnConfirm').textContent='确认编辑';
+  document.getElementById('addForm').classList.add('visible');
+  onUrlInput(rule.url||''); // 初始化"映射官服"按钮状态
+  document.getElementById('addUrl').focus();
+}
+function addPreset(type){ showAddForm(PRESETS[type]||''); }
+async function browseFile(){
+  if(!api) return;
+  var p=await api.browseReplaceFile();
+  if(p) document.getElementById('addFile').value=p;
+}
+async function normalizeFileInput(){
+  if(!api||!api.normalizeReplaceFilePath) return;
+  var el=document.getElementById('addFile');
+  var p=(el.value||'').trim();
+  if(!p) return;
+  var r=await api.normalizeReplaceFilePath(p);
+  if(r&&r.ok&&r.file) el.value=r.file;
+}
+function confirmAdd(){
+  var urlRaw=document.getElementById('addUrl').value.trim();
+  var fileRaw=document.getElementById('addFile').value.trim();
+  var url=normUrl(urlRaw), file=normPath(fileRaw);
+  if(!url){document.getElementById('addUrl').classList.add('err');toast('URL 不能为空','bad');return;}
+  document.getElementById('addUrl').classList.remove('err');
+  document.getElementById('addFile').classList.remove('err');
+  // ── 官服自动映射（两种填写方式都支持）─────────────────────────────────────
+  // 规则：http://seer2.61.com/res/... ↔ http://43.138.190.6/seer2/res/...
+  //
+  // 方式 A：用户把官服 URL 填在"自动检测"（file）字段，URL 字段留空
+  //   → 从 file 派生 url（改服路径），保留 file 作为替换来源
+  if (!urlRaw && file) {
+    var _m61f = file.match(/^https?:\/\/seer2\.61\.com(\/.*)?$/i);
+    if (_m61f) {
+      url = 'http://43.138.190.6/seer2' + (_m61f[1] || '/');
+      toast('已自动映射：官服地址 → 改服拦截路径', 'ok');
+    }
+  }
+  // 方式 B：用户把官服 URL 填在 URL 字段，"自动检测"留空
+  //   → url 改为改服路径，file 设为官服 URL（作为替换来源）
+  if (file === url || !fileRaw) {
+    var _m61u = url.match(/^https?:\/\/seer2\.61\.com(\/.*)?$/i);
+    if (_m61u) {
+      file = url;  // 替换来源 = 官服 URL
+      url  = 'http://43.138.190.6/seer2' + (_m61u[1] || '/');
+      toast('已自动映射：官服 → 改服路径', 'ok');
+    }
+  }
+  if(!file) file=url;
+  if(_isBlockedUrl(url)){toast('该 URL 受启动器保护，无法替换','bad');document.getElementById('addUrl').classList.add('err');return;}
+  _pushUndo(_editIdx>=0?'编辑条目':'添加条目');
+  if(_editIdx>=0){ _rules[_editIdx]={url:url,file:file,label:_rules[_editIdx].label||'',enabled:_rules[_editIdx].enabled}; }
+  else { _rules.push({url:url,file:file,enabled:true}); }
+  hideAddForm(); save(); render(); toast(_editIdx>=0?'已更新':'已添加','ok');
+}
+
+// ── import / export ───────────────────────────────────────────────────────────
+async function importRules(){
+  if(!api) return;
+  var r=await api.importReplaceRules();
+  if(!r) return;
+  if(!r.ok){toast('导入失败：'+(r.error||'格式错误'),'bad');return;}
+  _pushUndo('导入规则');
+  _rules=r.rules||[]; _sel.clear(); render();
+  toast('导入成功，共 '+_rules.length+' 条','ok');
+}
+async function exportRules(){
+  if(!api) return;
+  var r=await api.exportReplaceRules();
+  if(r&&r.ok) toast('导出成功','ok');
+  else if(r&&!r.ok) toast('导出失败','bad');
+}
+
+// ── pin ───────────────────────────────────────────────────────────────────────
+function togglePin(){
+  _pinned=!_pinned;
+  var btn=document.getElementById('btnPin');
+  if(btn){
+    btn.classList.toggle('pinned',_pinned);
+    btn.title=_pinned?'已固定（多窗口共存中，不被点击或切换关闭）':'固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）';
+    try{btn.blur();}catch(_){}
+  }
+  if(api&&api.setOverlayPinned) api.setOverlayPinned(_pinned);
+}
+
+// ── toast ─────────────────────────────────────────────────────────────────────
+var _toastTimer=null;
+function toast(msg,type){
+  var el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast show'+(type?' '+type:'');
+  if(_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(function(){el.classList.remove('show');},2200);
+}
+
+// ── 行右键菜单 ────────────────────────────────────────────────────────────────
+var _ctxMenu=null;
+function _removeCtxMenu(){ if(_ctxMenu){_ctxMenu.remove();_ctxMenu=null;} }
+function showRowCtxMenu(e){
+  _removeCtxMenu();
+  var single=_sel.size===1, top=_canMoveTop(), bot=_canMoveBottom();
+  var items=[
+    {label:'复制',  action:function(){copySelected();}},
+    {label:'粘贴',  action:function(){pasteSelected();}, disabled:_entryCb.length===0},
+    {label:'剪切',  action:function(){cutSelected();}},
+    {sep:true},
+    {label:'修改',  action:function(){showEditForm(Array.from(_sel)[0]);}, disabled:!single},
+    {sep:true},
+    {label:'置顶',  action:function(){moveTop();},   disabled:!top},
+    {label:'置底',  action:function(){moveBottom();}, disabled:!bot},
+    {sep:true},
+    {label:'撤销',  action:function(){undoAction();}, disabled:_undoStack.length===0},
+    {sep:true},
+    {label:'删除',  action:function(){_pushUndo('删除条目');deleteSelected();}, danger:true},
+  ];
+  var menu=document.createElement('div'); menu.className='ctx-menu';
+  items.forEach(function(it){
+    if(it.sep){var s=document.createElement('div');s.className='ctx-sep';menu.appendChild(s);return;}
+    var li=document.createElement('div'); li.className='ctx-item'+(it.danger?' danger':'')+(it.disabled?' disabled':'');
+    li.textContent=it.label;
+    if(!it.disabled) li.addEventListener('mousedown',function(ev){ev.preventDefault();ev.stopPropagation();_removeCtxMenu();it.action();});
+    menu.appendChild(li);
+  });
+  var x=e.clientX,y=e.clientY; document.body.appendChild(menu);
+  var mw=menu.offsetWidth,mh=menu.offsetHeight;
+  if(x+mw>window.innerWidth) x=window.innerWidth-mw-4;
+  if(y+mh>window.innerHeight) y=window.innerHeight-mh-4;
+  menu.style.left=x+'px'; menu.style.top=y+'px'; _ctxMenu=menu;
+}
+document.addEventListener('click',_removeCtxMenu,true);
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape')_removeCtxMenu();},true);
+
+// ── input 右键菜单（addUrl / addFile）────────────────────────────────────────
+(function(){
+  function showInputCtxMenu(e,input){
+    e.preventDefault(); _removeCtxMenu();
+    var ss=input.selectionStart, se=input.selectionEnd, hasSel=ss<se;
+    var items=[
+      {label:'复制', disabled:!hasSel, action:function(){ navigator.clipboard.writeText(input.value.slice(ss,se)).catch(function(){}); }},
+      {label:'粘贴', action:function(){ navigator.clipboard.readText().then(function(t){ var v=input.value; input.value=v.slice(0,ss)+t+v.slice(se); var p=ss+t.length; input.setSelectionRange(p,p); input.dispatchEvent(new Event('input')); }).catch(function(){}); }},
+      {label:'剪切', disabled:!hasSel, action:function(){ navigator.clipboard.writeText(input.value.slice(ss,se)).catch(function(){}); input.value=input.value.slice(0,ss)+input.value.slice(se); input.setSelectionRange(ss,ss); input.dispatchEvent(new Event('input')); }},
+      {label:'删除', disabled:!hasSel, action:function(){ input.value=input.value.slice(0,ss)+input.value.slice(se); input.setSelectionRange(ss,ss); input.dispatchEvent(new Event('input')); }},
+    ];
+    var menu=document.createElement('div'); menu.className='ctx-menu';
+    items.forEach(function(it){
+      var li=document.createElement('div'); li.className='ctx-item'+(it.disabled?' disabled':'');
+      li.textContent=it.label;
+      if(!it.disabled) li.addEventListener('mousedown',function(ev){ev.preventDefault();ev.stopPropagation();_removeCtxMenu();it.action();});
+      menu.appendChild(li);
+    });
+    var x=e.clientX,y=e.clientY; document.body.appendChild(menu);
+    var mw=menu.offsetWidth,mh=menu.offsetHeight;
+    if(x+mw>window.innerWidth) x=window.innerWidth-mw-4;
+    if(y+mh>window.innerHeight) y=window.innerHeight-mh-4;
+    menu.style.left=x+'px'; menu.style.top=y+'px'; _ctxMenu=menu;
+  }
+  document.addEventListener('DOMContentLoaded',function(){
+    ['addUrl','addFile'].forEach(function(id){
+      var el=document.getElementById(id);
+      if(el) el.addEventListener('contextmenu',function(e){showInputCtxMenu(e,el);});
+    });
+    var fileEl=document.getElementById('addFile');
+    if(fileEl) fileEl.addEventListener('blur',normalizeFileInput);
+  });
+})();
+
+// ── keyboard ───────────────────────────────────────────────────────────────────
+document.addEventListener('keydown',function(e){
+  var inForm=document.getElementById('addForm').classList.contains('visible');
+  if(e.key==='Escape'){ if(inForm){hideAddForm();return;} _removeCtxMenu(); window.close(); return; }
+  if(e.key==='Enter'&&inForm){ confirmAdd(); return; }
+  if(e.ctrlKey&&e.key.toLowerCase()==='z'){ e.preventDefault(); undoAction(); return; }
+  if(!inForm){
+    if(e.key==='Delete'||e.key==='Backspace'){ _pushUndo('Delete键删除'); deleteSelected(); }
+    if(e.ctrlKey&&e.key.toLowerCase()==='a'){ var t=(document.activeElement||{}).tagName; if(t!=='INPUT'&&t!=='TEXTAREA'){e.preventDefault();selectAll();} }
+    if(e.ctrlKey&&e.key.toLowerCase()==='c') copySelected();
+    if(e.ctrlKey&&e.key.toLowerCase()==='x') cutSelected();
+    if(e.ctrlKey&&e.key.toLowerCase()==='v') pasteSelected();
+  }
+});
+document.addEventListener('mouseup',function(event){var button=event.target&&event.target.closest?event.target.closest('button'):null;if(button)setTimeout(function(){try{button.blur()}catch(_){}},0);});
+
+// ── external sync ──────────────────────────────────────────────────────────────
+if(api&&api.onReplaceRulesChanged){
+  api.onReplaceRulesChanged(function(d){ if(d&&Array.isArray(d.rules)){_rules=d.rules;_sel.clear();render();} });
+}
+if(api&&api.onSelectedServerChanged){
+  api.onSelectedServerChanged(function(d){
+    if(d&&d.rootUrl){ _currentRootUrl=d.rootUrl; _rebuildPresets(); }
+  });
+}
+
+// ── init ───────────────────────────────────────────────────────────────────────
+(function(){
+  if(!api){ document.getElementById('stxt').textContent='electronAPI 未挂载'; return; }
+  // 获取当前线路 rootUrl 用于快速+xxx
+  if(api.getCurrentServer){
+    api.getCurrentServer().then(function(srv){ if(srv&&srv.rootUrl){ _currentRootUrl=srv.rootUrl; _rebuildPresets(); } }).catch(function(){});
+  }
+  api.getReplaceRules().then(function(r){
+    if(r&&r.ok&&Array.isArray(r.rules)) _rules=r.rules;
+    render();
+  }).catch(function(){render();});
+})();
+</script>
+</body></html>

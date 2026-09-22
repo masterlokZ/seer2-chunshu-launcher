@@ -1,0 +1,28 @@
+# 构建输出
+output/
+.releases/
+dist-build/
+
+# npm 依赖
+node_modules/
+
+# 运行时 / 部署产物
+seer2-春树登陆器.exe
+*.asar
+*.pak
+*.dll
+*.dat
+*.bin
+*.json.bak
+*.bak_*
+*.log
+
+# 构建后会从游戏服务器下载的 SWFs
+local-res/
+
+# 构建后 npm install 生成
+package-lock.json
+
+# 编辑器
+.vscode/
+.idea/

@@ -1,0 +1,1077 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8"><title>缓存管理</title><style>
+:root{--bg:#0a0e1a;--bg2:#0d1220;--bdr:rgba(255,255,255,.07);--pri:#00d4ff;--sc:#22c55e;--sc2:#16a34a;--red:#ef4444;--warn:#f59e0b;--dim:#64748b;--txt:#e2e8f0;--cap:#a78bfa;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--txt);font-family:'Microsoft YaHei','Segoe UI',sans-serif;font-size:11px;display:flex;flex-direction:column;overflow:hidden;user-select:none;}
+.titlebar{height:32px;background:rgba(0,212,255,.06);border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:8px;padding:0 10px;flex-shrink:0;-webkit-app-region:drag;user-select:none;}
+.titlebar-icon{font-size:14px;color:var(--pri);}
+.titlebar-title{font-size:11px;font-weight:700;color:var(--pri);letter-spacing:1px;text-transform:uppercase;}
+button:focus{outline:none;}
+.titlebar-pin{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:transparent;color:var(--muted,#7e93a8);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.5;transition:all .18s;outline:none;margin-left:auto;}
+.titlebar-pin:hover{background:rgba(255,255,255,.1);opacity:.85;}
+.titlebar-pin.pinned{color:#f59e0b;opacity:1;outline:none;}
+.titlebar-pin:focus{outline:none;}
+.titlebar-min{-webkit-app-region:no-drag;width:20px;height:20px;border:none;border-radius:3px;background:rgba(100,116,139,.10);color:var(--dim);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.6;transition:all .18s;}
+.titlebar-min:hover{background:rgba(100,116,139,.25);opacity:1;color:var(--txt);}
+.titlebar-close{-webkit-app-region:no-drag;width:22px;height:22px;border:none;border-radius:3px;background:rgba(239,68,68,.08);color:var(--red);font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .18s;}
+.titlebar-close:hover{background:rgba(239,68,68,.22);}
+/* Stats bar */
+.stats-bar{display:flex;gap:16px;align-items:center;padding:8px 14px;background:rgba(255,255,255,.02);border-bottom:1px solid var(--bdr);flex-shrink:0;}
+.stat-item{display:flex;flex-direction:column;gap:2px;}
+.stat-lbl{font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;}
+.stat-val{font-size:13px;font-weight:700;color:var(--pri);font-family:'Consolas',monospace;}
+.stat-dir{font-size:9px;color:var(--dim);margin-left:auto;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-align:right;}
+.stat-dir:hover{color:var(--txt);}
+/* Tab bar — cache tabs + capture tab */
+.tab-bar{display:flex;align-items:center;gap:6px;padding:6px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0;background:rgba(0,0,0,.15);}
+.tab-btn{height:24px;padding:0 12px;border:1px solid var(--bdr);border-radius:12px;background:transparent;color:var(--dim);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.tab-btn:hover{border-color:rgba(0,212,255,.3);color:var(--txt);}
+.tab-btn.active{border-color:var(--pri);background:rgba(0,212,255,.1);color:var(--pri);}
+.tab-btn.game.active{border-color:var(--warn);background:rgba(245,158,11,.1);color:var(--warn);}
+.tab-btn.official.active{border-color:var(--sc);background:rgba(34,197,94,.1);color:var(--sc);}
+.tab-btn.other.active{border-color:#c084fc;background:rgba(192,132,252,.1);color:#c084fc;}
+.tab-sep{width:1px;height:18px;background:var(--bdr);margin:0 4px;}
+/* 实时捕获 tab — 特殊样式，紫色系 */
+.tab-btn.capture{border-color:rgba(167,139,250,.3);color:#a78bfa;}
+.tab-btn.capture:hover{border-color:rgba(167,139,250,.6);background:rgba(167,139,250,.06);}
+.tab-btn.capture.active{border-color:#a78bfa;background:rgba(167,139,250,.12);color:#a78bfa;}
+.tab-btn.capture.capturing{border-color:#a78bfa;background:rgba(167,139,250,.12);color:#a78bfa;}
+.cap-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#a78bfa;margin-right:4px;opacity:.4;}
+.cap-dot.on{opacity:1;animation:capblink .9s ease-in-out infinite;}
+@keyframes capblink{0%,100%{opacity:1;}50%{opacity:.3;}}
+/* Control bar */
+.ctrl-bar{display:flex;align-items:center;gap:7px;padding:7px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0;flex-wrap:wrap;}
+.ctrl-btn{height:24px;padding:0 10px;border:none;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;}
+.ctrl-btn.sel-all{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22);color:var(--sc);}
+.ctrl-btn.sel-all:hover{background:rgba(34,197,94,.15);}
+.ctrl-btn.desel{background:rgba(100,116,139,.08);border:1px solid rgba(100,116,139,.2);color:var(--dim);}
+.ctrl-btn.desel:hover{background:rgba(100,116,139,.14);}
+.ctrl-btn.invert{background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.22);color:#c084fc;}
+.ctrl-btn.invert:hover:not(:disabled){background:rgba(168,85,247,.15);}
+.ctrl-btn.invert:disabled{opacity:.3;cursor:not-allowed;}
+.ctrl-btn.copy{background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.24);color:#60a5fa;}
+.ctrl-btn.copy:hover:not(:disabled){background:rgba(59,130,246,.16);}
+.ctrl-btn.copy:disabled{opacity:.3;cursor:not-allowed;}
+.ctrl-btn.del-sel{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);color:var(--red);}
+.ctrl-btn.del-sel:hover:not(:disabled){background:rgba(239,68,68,.16);}
+.ctrl-btn.del-sel:disabled{opacity:.3;cursor:not-allowed;}
+.ctrl-btn.del-all{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:var(--red);font-weight:800;}
+.ctrl-btn.del-all:hover{background:rgba(239,68,68,.22);}
+.ctrl-btn.refresh{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.22);color:var(--pri);}
+.ctrl-btn.refresh:hover{background:rgba(0,212,255,.15);}
+.sel-info{font-size:9px;color:var(--dim);margin-left:4px;}
+/* Table */
+.table-wrap{flex:1;overflow-y:auto;overflow-x:hidden;}
+::-webkit-scrollbar{width:3px;}::-webkit-scrollbar-thumb{background:rgba(0,212,255,.18);border-radius:2px;}
+table{width:100%;border-collapse:collapse;}
+thead tr{background:rgba(0,212,255,.04);border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:1;}
+th{padding:6px 10px;text-align:left;font-size:9px;font-weight:700;color:var(--dim);letter-spacing:1px;text-transform:uppercase;white-space:nowrap;user-select:none;}
+th.r{text-align:right;}
+td{padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.03);font-size:10px;vertical-align:middle;}
+td.r{text-align:right;font-family:'Consolas',monospace;font-size:9px;color:var(--dim);}
+tr:hover td{background:rgba(255,255,255,.03);}
+tr.selected td{background:rgba(34,197,94,.05);}
+.fname{display:inline-block;font-weight:600;color:var(--txt);max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px;user-select:none;}
+.fname:hover{color:var(--pri);}
+.furl{display:inline-block;font-size:9px;color:var(--dim);max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;user-select:none;}
+.furl:hover{color:var(--txt);text-decoration:underline dotted;text-underline-offset:2px;}
+.badge{font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;text-transform:uppercase;letter-spacing:.5px;}
+.badge-swf{background:rgba(239,68,68,.12);color:#f87171;}
+.badge-png,.badge-jpg{background:rgba(34,197,94,.12);color:#4ade80;}
+.badge-mp3{background:rgba(168,85,247,.12);color:#c084fc;}
+.badge-oth{background:rgba(100,116,139,.12);color:var(--dim);}
+/* Inline confirm banner */
+.confirm-bar{display:none;align-items:center;gap:8px;padding:7px 14px;background:rgba(239,68,68,.08);border-bottom:1px solid rgba(239,68,68,.25);flex-shrink:0;}
+.confirm-bar.show{display:flex;}
+.confirm-msg{font-size:10px;color:var(--red);flex:1;}
+.confirm-ok{height:22px;padding:0 10px;border:none;border-radius:4px;background:rgba(239,68,68,.18);color:var(--red);font-size:10px;font-weight:700;cursor:pointer;}
+.confirm-ok:hover{background:rgba(239,68,68,.3);}
+.confirm-cancel{height:22px;padding:0 10px;border:none;border-radius:4px;background:rgba(100,116,139,.1);color:var(--dim);font-size:10px;cursor:pointer;}
+.confirm-cancel:hover{background:rgba(100,116,139,.2);}
+/* Empty state */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;gap:10px;color:var(--dim);}
+.empty-state .icon{font-size:32px;opacity:.3;}
+.empty-state .msg{font-size:11px;}
+/* Bottom bar */
+.sbar{height:22px;padding:0 12px;display:flex;align-items:center;justify-content:space-between;background:rgba(10,14,26,.85);border-top:1px solid var(--bdr);font-size:9px;color:var(--dim);flex-shrink:0;} #sbarLeft{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:calc(100% - 80px);cursor:default;}
+.toast{position:fixed;bottom:28px;right:10px;padding:5px 12px;background:rgba(13,20,38,.97);border:1px solid var(--bdr);border-radius:6px;font-size:10px;color:var(--txt);transform:translateY(30px);opacity:0;transition:all .22s;pointer-events:none;}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{border-color:rgba(34,197,94,.4);}
+.toast.bad{border-color:rgba(239,68,68,.4);}
+@keyframes __spin{to{transform:rotate(360deg);}}
+.spin{display:inline-block;animation:__spin .6s linear infinite;}
+
+/* ═══════════════════════════════════════════════════════
+   捕获视图 — 完全独立面板，与缓存列表互斥显示
+   ═══════════════════════════════════════════════════════ */
+#captureView{flex:1;display:none;flex-direction:column;overflow:hidden;}
+#captureView.active{display:flex;}
+
+/* 捕获控制条 */
+.cap-ctrl{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bdr);flex-shrink:0;background:rgba(167,139,250,.03);}
+.cap-toggle{height:26px;padding:0 14px;border:1px solid rgba(167,139,250,.35);border-radius:13px;background:transparent;color:#a78bfa;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .18s;white-space:nowrap;}
+.cap-toggle:hover{border-color:#a78bfa;background:rgba(167,139,250,.1);}
+.cap-toggle.on{border-color:#a78bfa;background:rgba(167,139,250,.15);color:#c4b5fd;}
+.cap-filter-lbl{font-size:9px;color:var(--dim);letter-spacing:1px;margin-left:8px;white-space:nowrap;}
+.cap-filter-btn{height:22px;padding:0 10px;border:1px solid var(--bdr);border-radius:11px;background:transparent;color:var(--dim);font-size:10px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap;}
+.cap-filter-btn:hover{border-color:rgba(167,139,250,.4);color:var(--txt);}
+.cap-filter-btn.active{border-color:#a78bfa;background:rgba(167,139,250,.12);color:#a78bfa;}
+.cap-filter-btn.game.active{border-color:var(--warn);background:rgba(245,158,11,.1);color:var(--warn);}
+.cap-filter-btn.official.active{border-color:var(--sc);background:rgba(34,197,94,.1);color:var(--sc);}
+.cap-filter-btn.other.active{border-color:#c084fc;background:rgba(192,132,252,.1);color:#c084fc;}
+.cap-count-badge{margin-left:auto;font-size:9px;color:#a78bfa;font-family:monospace;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.2);border-radius:10px;padding:1px 8px;}
+.cap-list-hdr{display:flex;align-items:center;gap:6px;padding:5px 14px;background:rgba(167,139,250,.04);border-bottom:1px solid var(--bdr);flex-shrink:0;}
+.cap-list-hdr-title{font-size:9px;font-weight:700;color:#a78bfa;letter-spacing:1px;flex:1;}
+.cap-hdr-btn{height:18px;padding:0 8px;border:1px solid rgba(167,139,250,.2);border-radius:3px;background:transparent;color:var(--dim);font-size:9px;cursor:pointer;font-family:inherit;transition:all .15s;}
+.cap-hdr-btn:hover:not(:disabled){background:rgba(167,139,250,.1);color:var(--txt);}
+.cap-hdr-btn:disabled{opacity:.32;cursor:not-allowed;}
+.cap-hdr-btn.copy{border-color:rgba(59,130,246,.24);color:#60a5fa;}
+.cap-hdr-btn.copy:hover:not(:disabled){background:rgba(59,130,246,.12);color:#93c5fd;}
+.cap-hdr-btn.del{border-color:rgba(239,68,68,.2);}.cap-hdr-btn.del:hover:not(:disabled){background:rgba(239,68,68,.1);color:var(--red);}
+.cap-hdr-btn.inv{border-color:rgba(168,85,247,.2);color:#c084fc;}.cap-hdr-btn.inv:hover:not(:disabled){background:rgba(168,85,247,.1);}
+.cap-chk{flex-shrink:0;width:12px;height:12px;cursor:pointer;accent-color:#a78bfa;}
+.cap-seq{flex-shrink:0;font-size:8px;font-family:monospace;color:var(--dim);min-width:18px;text-align:right;padding-right:3px;}
+.cap-list-wrap{flex:1;overflow-y:auto;overflow-x:hidden;}
+/* 每条捕获记录 */
+.cap-item{display:flex;align-items:center;gap:8px;padding:5px 14px;border-bottom:1px solid rgba(255,255,255,.025);cursor:pointer;transition:background .1s;user-select:none;}
+.cap-item:hover{background:rgba(167,139,250,.06);}
+.cap-item.selected{background:rgba(167,139,250,.1);}
+.cap-src-badge{font-size:8px;font-weight:700;padding:2px 6px;border-radius:3px;flex-shrink:0;text-transform:uppercase;letter-spacing:.5px;}
+.cap-src-badge.game{background:rgba(245,158,11,.12);color:#f59e0b;}
+.cap-src-badge.official{background:rgba(34,197,94,.12);color:#4ade80;}
+.cap-src-badge.other{background:rgba(192,132,252,.12);color:#c084fc;}
+.cap-item-url{flex:0 1 auto;max-width:calc(100% - 150px);font-size:9px;font-family:'Consolas',monospace;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:none;}
+.cap-item-url:hover{color:#a78bfa;}
+.cap-item-copy{font-size:8px;color:var(--dim);padding:2px 6px;border:1px solid var(--bdr);border-radius:3px;flex-shrink:0;opacity:0;transition:opacity .15s;}
+.cap-item:hover .cap-item-copy{opacity:1;}
+.cap-item-copy:hover{background:rgba(167,139,250,.12);border-color:rgba(167,139,250,.3);color:#a78bfa;}
+/* 捕获空状态 */
+.cap-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:10px;color:var(--dim);}
+.cap-empty .icon{font-size:36px;opacity:.25;}
+.cap-empty .msg{font-size:11px;text-align:center;line-height:1.6;}
+.cap-empty .sub{font-size:9px;color:var(--dim);opacity:.6;}
+/* 捕获统计条 */
+.cap-stat-bar{display:flex;align-items:center;gap:12px;padding:5px 14px;border-bottom:1px solid var(--bdr);background:rgba(0,0,0,.1);flex-shrink:0;}
+.cap-stat-item{font-size:9px;color:var(--dim);}
+.cap-stat-item span{color:var(--txt);font-family:monospace;}
+</style></head><body>
+<div class="titlebar">
+  <span class="titlebar-icon">💾</span>
+  <span class="titlebar-title">缓存管理 / Cache Manager</span>
+  <button class="titlebar-pin" id="btnPin" title="固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）">📌</button>
+  <button class="titlebar-min" onclick="if(window.electronAPI)window.electronAPI.minimizeSelf()" title="最小化到任务栏">─</button>
+  <button class="titlebar-close" id="btnClose" title="关闭 (Esc)">✕</button>
+</div>
+
+<!-- 标签栏：缓存分类 + 实时捕获（独立视图切换） -->
+<div class="tab-bar" id="tabBar">
+  <button class="tab-btn active" data-tab="all"      onclick="switchTab('all')">全部</button>
+  <button class="tab-btn game"   data-tab="game"     onclick="switchTab('game')">🎮 改服资源</button>
+  <button class="tab-btn official" data-tab="official" onclick="switchTab('official')">🏛 官服资源</button>
+  <button class="tab-btn other"  data-tab="other"    onclick="switchTab('other')">🌐 其它资源</button>
+  <div class="tab-sep"></div>
+  <button class="tab-btn capture" data-tab="capture" onclick="switchTab('capture')" id="captureTabBtn">
+    <span class="cap-dot" id="tabCapDot"></span>实时捕获
+  </button>
+</div>
+
+<!-- ═══ 缓存视图（默认显示） ═══ -->
+<div id="cacheView">
+  <div class="stats-bar">
+    <div class="stat-item"><span class="stat-lbl">已缓存文件</span><span class="stat-val" id="statCount">—</span></div>
+    <div class="stat-item"><span class="stat-lbl">总大小</span><span class="stat-val" id="statSize">—</span></div>
+    <div class="stat-item"><span class="stat-lbl">本次命中</span><span class="stat-val" id="statHits">—</span></div>
+    <span class="stat-dir" id="statDir" title="点击在资源管理器中打开文件夹">—</span>
+  </div>
+  <div class="ctrl-bar">
+    <input type="checkbox" id="chkAll" title="全选" style="width:13px;height:13px;cursor:pointer;" onclick="toggleSelectAll(this.checked)">
+    <button class="ctrl-btn sel-all"   onclick="selectAll()">全选</button>
+    <button class="ctrl-btn desel"     onclick="deselectAll()">取消</button>
+    <button class="ctrl-btn invert"    id="btnInvert" onclick="invertSel()" disabled>反选</button>
+    <span class="sel-info">已选 <span id="selCount">0</span> / <span id="totalCount">0</span></span>
+    <div style="flex:1"></div>
+    <button class="ctrl-btn refresh" id="btnRefresh" onclick="doRefresh()"><span id="refreshIcon">↺</span> 刷新</button>
+    <button class="ctrl-btn copy" id="btnCopySel" onclick="copySelectedUrls()" disabled>复制所选URL</button>
+    <button class="ctrl-btn del-sel" id="btnDelSel" onclick="deleteSelected()" disabled>清除所选</button>
+    <button class="ctrl-btn del-all" onclick="clearAll()">全部清除</button>
+  </div>
+  <div class="confirm-bar" id="confirmBar">
+    <span class="confirm-msg" id="confirmMsg"></span>
+    <button class="confirm-ok"     id="confirmOk">确认删除</button>
+    <button class="confirm-cancel" id="confirmCancel">取消</button>
+  </div>
+  <div class="table-wrap" id="tableWrap">
+    <div class="empty-state" id="emptyState">
+      <span class="icon">📭</span>
+      <span class="msg">暂无缓存文件</span>
+    </div>
+    <table id="cacheTable" style="display:none;">
+      <thead>
+        <tr>
+          <th style="width:26px;"><input type="checkbox" id="chkAll2" onclick="toggleSelectAll(this.checked)" style="cursor:pointer;"></th>
+          <th>文件名</th>
+          <th>类型</th>
+          <th class="r">大小</th>
+          <th class="r">命中</th>
+          <th class="r">缓存时间</th>
+        </tr>
+      </thead>
+      <tbody id="cacheBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══ 捕获视图（点击"实时捕获"标签后显示，完全替换缓存视图） ═══ -->
+<div id="captureView">
+  <!-- 捕获控制条 -->
+  <div class="cap-ctrl">
+    <button class="cap-toggle" id="capToggleBtn" onclick="toggleCapture()">● 捕获已关闭</button>
+    <div class="tab-sep" style="margin:0 6px;"></div>
+    <span class="cap-filter-lbl">显示：</span>
+    <button class="cap-filter-btn active" data-mode="all"      onclick="setCapFilter('all')">全部</button>
+    <button class="cap-filter-btn game"   data-mode="game"     onclick="setCapFilter('game')">改服</button>
+    <button class="cap-filter-btn official" data-mode="official" onclick="setCapFilter('official')">官服</button>
+    <button class="cap-filter-btn other"  data-mode="other"    onclick="setCapFilter('other')">其它</button>
+    <span class="cap-count-badge" id="capCountBadge">0 条</span>
+  </div>
+  <!-- 捕获统计 -->
+  <div class="cap-stat-bar" id="capStatBar">
+    <span class="cap-stat-item">全部 <span id="capStatAll">0</span></span>
+    <span class="cap-stat-item">改服 <span id="capStatGame">0</span></span>
+    <span class="cap-stat-item">官服 <span id="capStatOfficial">0</span></span>
+    <span class="cap-stat-item">其它 <span id="capStatOther">0</span></span>
+    <div style="flex:1"></div>
+    <span class="cap-stat-item" style="font-size:8px;opacity:.5;">捕获列表仅显示当前尚未缓存的请求</span>
+  </div>
+  <!-- 列表头部操作 -->
+  <div class="cap-list-hdr">
+    <span class="cap-list-hdr-title">📡 已捕获 — 点击复制 URL</span>
+    <input type="checkbox" id="capChkAll" title="全选" style="width:12px;height:12px;cursor:pointer;" onchange="capToggleAll(this.checked)">
+    <button class="cap-hdr-btn inv" onclick="capInvertSel()" title="反选">反选</button>
+    <button class="cap-hdr-btn" onclick="capDeselectAll()">取消选择</button>
+    <button class="cap-hdr-btn" id="capRefreshBtn" onclick="doCapRefresh()" title="立即刷新捕获列表"><span id="capRefreshIcon">↺</span> 刷新</button>
+    <button class="cap-hdr-btn copy" id="capCopySel" onclick="capCopySelected()" disabled>复制所选URL</button>
+    <button class="cap-hdr-btn del" id="capDeleteSel" onclick="capDeleteSelected()" disabled>删除所选</button>
+    <button class="cap-hdr-btn del" onclick="capClearAll()">全部清除</button>
+  </div>
+  <!-- 列表 / 空状态 -->
+  <div class="cap-list-wrap" id="capListWrap">
+    <div class="cap-empty" id="capEmptyState">
+      <span class="icon">📡</span>
+      <span class="msg">尚无捕获记录<br>开启捕获后，游戏加载的未缓存资源将显示在这里</span>
+      <span class="sub">已缓存的文件不会出现在此列表中</span>
+    </div>
+  </div>
+</div>
+
+<div class="sbar">
+  <span id="sbarLeft">GameCache · 本地优先策略</span>
+  <span id="sbarTime"></span>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+var api = window.electronAPI;
+var _items = [];        // 全量缓存数据
+var _selected = {};     // hash → true
+var _pinned = false;
+var _toastTimer = null;
+var _activeTab = 'all'; // 'all'|'game'|'official'|'other'|'capture'
+var _lastCacheHash = null;
+
+// ── 捕获状态 ─────────────────────────────────────────────────────────────
+var _capEnabled    = false;          // 捕获开关（前端状态）
+var _capItems      = [];             // [{ url, sourceType, time }] 全部捕获记录（不含已缓存）
+var _capFilterMode = 'all';          // 视图过滤：'all'|'game'|'official'|'other'
+var _capSel        = {};             // url → true（已选中）
+var _cachedPathSet = new Set();      // 已缓存文件的 URL path 集合（用于过滤）
+var _capPollTimer  = null;
+var _lastCapUrl    = null;
+
+// ── 视图切换 ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  _activeTab = tab;
+  _lastCacheHash = null;
+  _lastCapUrl = null;
+  // 持久化（会话级）——仅 'capture' 在捕获开启时才存储，否则存 'all' 兜底
+
+  // 标签高亮
+  document.querySelectorAll('.tab-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+  // 缓存视图 / 捕获视图 互斥显示
+  var cacheEl   = document.getElementById('cacheView');
+  var captureEl = document.getElementById('captureView');
+  if (tab === 'capture') {
+    cacheEl.style.display   = 'none';
+    captureEl.classList.add('active');
+    renderCapList();
+    updateCapCount();
+  } else {
+    cacheEl.style.display   = 'flex';
+    cacheEl.style.flexDirection = 'column';
+    cacheEl.style.overflow  = 'hidden';
+    cacheEl.style.flex      = '1';
+    captureEl.classList.remove('active');
+    renderStats();
+    renderTable();
+    updateSelUI();
+  }
+}
+
+function _filteredItems() {
+  if (_activeTab === 'all' || _activeTab === 'capture') return _items;
+  return _items.filter(function(i) { return (i.sourceType || 'game') === _activeTab; });
+}
+
+// ── 初始化 ────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // 设置缓存视图默认 flex 布局
+  var cacheEl = document.getElementById('cacheView');
+  cacheEl.style.display = 'flex';
+  cacheEl.style.flexDirection = 'column';
+  cacheEl.style.overflow = 'hidden';
+  cacheEl.style.flex = '1';
+
+  loadList();
+  setupPinClose();
+  setupConfirmBar();
+
+  // 初始化捕获状态；若捕获正在进行则自动切换到捕获 tab
+  // 注：cache overlay 每次打开都是新 BrowserWindow，DOMContentLoaded 必然重新触发。
+  // 通过读取后端 captureMode 恢复用户上次的捕获状态，并据此自动切换视图。
+  initCapture();
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') { if (isConfirming()) cancelConfirm(); else closeSelf(); }
+  });
+
+  if (api && api.onCaptureCleared) {
+    api.onCaptureCleared(function() {
+      _capItems = []; _capSel = {};
+      renderCapList(); updateCapCount();
+    });
+  }
+
+  document.getElementById('statDir').addEventListener('click', function() {
+    var dir = this.textContent;
+    if (dir && dir !== '—') { api.openCacheFolder(dir); toast('正在打开文件夹...', 'ok'); }
+  });
+
+  // 事件委托：
+  // 行空白处单击立即切换选中；文件名/URL 只在精确点中自身元素时触发。
+  // 文件名和 URL 只在精确点中自身元素时触发，避免点到同一行空白处误复制。
+  document.getElementById('cacheBody').addEventListener('click', function(e) {
+    if (e.target.tagName === 'INPUT') return;
+    var tr = e.target.closest('tr[data-hash]');
+    if (!tr) return;
+    var hash = tr.getAttribute('data-hash');
+    if (!hash) return;
+    if (e.target.classList.contains('fname')) {
+      openCacheFileByHash(hash);
+      return;
+    }
+    if (e.target.classList.contains('furl')) {
+      copyCacheUrlByHash(hash);
+      return;
+    }
+    handleCacheSelect(tr, hash, !_selected[hash], e.shiftKey);
+  });
+
+  window.addEventListener('focus', function() { loadList(); });
+
+  // 切换线路后刷新缓存列表和捕获列表（URL 会跟随当前线路重写）
+  if (api && api.onSelectedServerChanged) {
+    api.onSelectedServerChanged(function() {
+      loadList();
+      // 捕获列表也需要刷新，URL 同样跟随当前线路
+      if (_activeTab === 'capture') { doCapRefresh(); }
+    });
+  }
+
+  setInterval(function() { if (document.visibilityState !== 'hidden') { loadList(); } }, 2500);
+  setInterval(function() {
+    var d = new Date();
+    var t = d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0') + ':' + d.getSeconds().toString().padStart(2,'0');
+    var el = document.getElementById('sbarTime'); if (el) el.textContent = t;
+  }, 1000);
+
+  startCapPoll();
+});
+
+// ── 内联确认条 ────────────────────────────────────────────────────────────
+var _confirmCallback = null;
+function setupConfirmBar() {
+  document.getElementById('confirmOk').addEventListener('click', function() {
+    hideConfirm();
+    if (_confirmCallback) { var cb = _confirmCallback; _confirmCallback = null; cb(); }
+  });
+  document.getElementById('confirmCancel').addEventListener('click', cancelConfirm);
+}
+function showConfirm(msg, cb) {
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmBar').classList.add('show');
+  _confirmCallback = cb;
+}
+function hideConfirm() { document.getElementById('confirmBar').classList.remove('show'); }
+function cancelConfirm() { hideConfirm(); _confirmCallback = null; }
+function isConfirming() { return document.getElementById('confirmBar').classList.contains('show'); }
+
+function setupPinClose() {
+  var btnPin = document.getElementById('btnPin');
+  if (btnPin) {
+    btnPin.addEventListener('click', function() {
+      _pinned = !_pinned;
+      this.classList.toggle('pinned', _pinned);
+      this.title = _pinned ? '已固定（多窗口共存中，不被点击或切换关闭）' : '固定窗口（固定后：不被点击游戏关闭，且打开其它窗口时也不会自动关闭，可多窗口共存）';
+      try { this.blur(); } catch(_) {}
+      if (api && api.setOverlayPinned) api.setOverlayPinned(_pinned);
+    });
+  }
+  var btnClose = document.getElementById('btnClose');
+  if (btnClose) {
+    btnClose.addEventListener('click', closeSelf);
+  }
+}
+
+function closeSelf() { api.hideSelf(); }
+
+document.addEventListener('mouseup', function(event) {
+  var button = event.target && event.target.closest ? event.target.closest('button') : null;
+  if (button) setTimeout(function() { try { button.blur(); } catch(_) {} }, 0);
+});
+
+// ── 数据加载 ──────────────────────────────────────────────────────────────
+async function doRefresh() {
+  var icon = document.getElementById('refreshIcon');
+  if (icon) icon.classList.add('spin');
+  await clearCaptureListIfEnabled();
+  await loadList();
+  setTimeout(function() { if (icon) icon.classList.remove('spin'); }, 500);
+}
+
+async function loadList() {
+  try {
+    var r = await api.getCacheList();
+    if (!r.ok) { toast('加载失败: ' + (r.error||''), 'bad'); return; }
+    _items = r.items || [];
+    _items.sort(function(a,b){ return b.cachedAt - a.cachedAt; });
+    // 更新已缓存路径集合（用于捕获列表过滤）
+    _cachedPathSet = new Set(_items.map(function(i) { return _urlPath(i.url); }));
+    renderDir(r.dir);
+    if (_activeTab !== 'capture') { renderStats(); renderTable(); updateSelUI(); }
+    // 如果当前在捕获视图，重新渲染以剔除新缓存的条目
+    else { renderCapList(); updateCapCount(); }
+  } catch(e) { toast('加载异常: ' + e.message, 'bad'); }
+}
+
+function _urlPath(url) {
+  if (!url) return '';
+  try {
+    var u = new URL(url);
+    var p = u.pathname || '';
+    if (
+      u.hostname === '43.138.190.6' ||
+      u.hostname === 'seer2.61.com' ||
+      u.hostname === 'seer2.chunshu'
+    ) {
+      p = p.replace(/^\/seer2(?=\/|$)/, '') || '/';
+    }
+    return p || '/';
+  } catch(e) { return url; }
+}
+
+function renderDir(dir) {
+  var el = document.getElementById('statDir');
+  if (el) { el.textContent = dir || '—'; el.title = '点击打开文件夹: ' + (dir||''); }
+}
+
+function renderStats() {
+  var list = _filteredItems();
+  var total = list.length;
+  var totalBytes = list.reduce(function(s,i){ return s+(i.size||0); }, 0);
+  var totalHits  = list.reduce(function(s,i){ return s+(i.hitCount||0); }, 0);
+  var allTotal   = _items.length;
+  setText('statCount', _activeTab === 'all' ? total : total + ' / ' + allTotal);
+  setText('statSize', fmtBytes(totalBytes));
+  setText('statHits', totalHits);
+  setText('totalCount', total);
+}
+
+function renderTable() {
+  var tbody = document.getElementById('cacheBody');
+  var empty = document.getElementById('emptyState');
+  var table = document.getElementById('cacheTable');
+  var list  = _filteredItems();
+  if (!list.length) {
+    empty.style.display = 'flex'; table.style.display = 'none'; return;
+  }
+  empty.style.display = 'none'; table.style.display = '';
+  tbody.innerHTML = list.map(function(item) {
+    var ext   = (item.name||'').split('.').pop().toLowerCase();
+    var badge = 'badge-oth';
+    if (ext==='swf') badge='badge-swf';
+    else if (ext==='png'||ext==='jpg'||ext==='jpeg') badge='badge-png';
+    else if (ext==='mp3') badge='badge-mp3';
+    var checked = _selected[item.hash] ? 'checked' : '';
+    var rowCls  = _selected[item.hash] ? 'selected' : '';
+    return '<tr class="' + rowCls + '" data-hash="' + esc(item.hash) + '">' +
+      '<td><input type="checkbox" ' + checked + ' onclick="toggleRow(this,\'' + esc(item.hash) + '\',event)" style="cursor:pointer;"></td>' +
+      '<td>' +
+        '<div><span class="fname" title="在文件夹中显示" data-filepath="' + esc(item.filePath||'') + '">' + esc(item.name||item.hash) + '</span></div>' +
+        '<div><span class="furl" title="点击复制链接" data-url="' + esc(item.url||'') + '">' + esc(item.url||'') + '</span></div>' +
+      '</td>' +
+      '<td><span class="badge ' + badge + '">' + esc(ext) + '</span></td>' +
+      '<td class="r">' + fmtBytes(item.size||0) + '</td>' +
+      '<td class="r">' + (item.hitCount||0) + '</td>' +
+      '<td class="r">' + fmtTime(item.cachedAt) + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+// ── 选择管理 ──────────────────────────────────────────────────────────────
+function getCacheItemByHash(hash) {
+  for (var i = 0; i < _items.length; i++) {
+    if (_items[i] && _items[i].hash === hash) return _items[i];
+  }
+  return null;
+}
+
+function setCacheRowSelected(tr, hash, selected) {
+  if (selected) _selected[hash] = true; else delete _selected[hash];
+  if (tr) {
+    tr.className = selected ? 'selected' : '';
+    var cb = tr.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = selected;
+  }
+  updateSelUI();
+}
+
+function refreshCacheSelectionDom() {
+  document.querySelectorAll('#cacheBody tr[data-hash]').forEach(function(tr) {
+    var hash = tr.getAttribute('data-hash');
+    var selected = !!_selected[hash];
+    tr.className = selected ? 'selected' : '';
+    var cb = tr.querySelector('input[type="checkbox"]');
+    if (cb) cb.checked = selected;
+  });
+  updateSelUI();
+}
+
+function applyCacheRange(toHash, selected) {
+  var list = _filteredItems();
+  var from = -1, to = -1;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].hash === _lastCacheHash) from = i;
+    if (list[i].hash === toHash) to = i;
+  }
+  if (from < 0 || to < 0) return false;
+  var a = Math.min(from, to), b = Math.max(from, to);
+  for (var j = a; j <= b; j++) {
+    if (selected) _selected[list[j].hash] = true;
+    else delete _selected[list[j].hash];
+  }
+  refreshCacheSelectionDom();
+  return true;
+}
+
+function handleCacheSelect(tr, hash, selected, shiftKey) {
+  if (shiftKey && _lastCacheHash && applyCacheRange(hash, selected)) {
+    _lastCacheHash = hash;
+    return;
+  }
+  setCacheRowSelected(tr, hash, selected);
+  _lastCacheHash = hash;
+}
+
+function openCacheFileByHash(hash) {
+  var item = getCacheItemByHash(hash);
+  var fp = item && item.filePath;
+  if (!fp) { toast('没有可定位的本地文件', 'bad'); return; }
+  api.openCacheFile(fp);
+  toast('正在打开文件位置…', 'ok');
+}
+
+function copyCacheUrlByHash(hash) {
+  var item = getCacheItemByHash(hash);
+  var url = item && item.url;
+  if (!url) { toast('没有可复制的URL', 'bad'); return; }
+  copyTextToClipboard(url, '已复制链接');
+  var sb = document.getElementById('sbarLeft');
+  if (sb) { sb.textContent = '已复制: ' + url; sb.title = url; }
+}
+
+function toggleRow(chk, hash, event) {
+  handleCacheSelect(chk.closest('tr'), hash, chk.checked, !!(event && event.shiftKey));
+}
+function toggleSelectAll(checked) { if (checked) selectAll(); else deselectAll(); }
+function selectAll() {
+  _selected = {};
+  _filteredItems().forEach(function(i){ _selected[i.hash] = true; });
+  _lastCacheHash = null;
+  renderTable(); updateSelUI(); syncChkAll(true);
+}
+function deselectAll() { _selected = {}; _lastCacheHash = null; renderTable(); updateSelUI(); syncChkAll(false); }
+function invertSel() {
+  var newSel = {};
+  _filteredItems().forEach(function(i){ if (!_selected[i.hash]) newSel[i.hash] = true; });
+  _selected = newSel; _lastCacheHash = null; renderTable(); updateSelUI();
+}
+function syncChkAll(v) {
+  ['chkAll','chkAll2'].forEach(function(id){ var el=document.getElementById(id); if(el) el.checked=v; });
+}
+function updateSelUI() {
+  var n = Object.keys(_selected).length;
+  var total = _filteredItems().length;
+  setText('selCount', n); setText('totalCount', total);
+  var btnInvert = document.getElementById('btnInvert');
+  var btnCopySel = document.getElementById('btnCopySel');
+  var btnDelSel = document.getElementById('btnDelSel');
+  if (btnInvert) btnInvert.disabled = (total <= 1 || n === 0 || n >= total);
+  if (btnCopySel) btnCopySel.disabled = (n === 0);
+  if (btnDelSel) btnDelSel.disabled = (n === 0);
+  syncChkAll(total > 0 && n >= total);
+}
+
+// ── 缓存操作 ──────────────────────────────────────────────────────────────
+function copyTextToClipboard(text, okMsg) {
+  var p = (api && api.clipboardWrite) ? api.clipboardWrite(text) : Promise.reject(new Error('clipboard api missing'));
+  p.then(function() {
+    toast(okMsg || '已复制', 'ok');
+  }).catch(function() {
+    try {
+      navigator.clipboard.writeText(text).then(function() {
+        toast(okMsg || '已复制', 'ok');
+      }).catch(function() {
+        toast('复制失败', 'bad');
+      });
+    } catch(ex) {
+      toast('复制失败', 'bad');
+    }
+  });
+}
+
+async function clearCaptureListIfEnabled() {
+  if (!_capEnabled || !api || !api.clearCapturedItems) return false;
+  try { await api.clearCapturedItems(); } catch(e) {}
+  _capItems = [];
+  _capSel = {};
+  _capLastFingerprint = '';
+  renderCapList();
+  updateCapCount();
+  updateTabCapDot();
+  return true;
+}
+
+function copySelectedUrls() {
+  var selected = Object.keys(_selected);
+  if (!selected.length) { toast('请先选择缓存条目', 'bad'); return; }
+  var byHash = {};
+  _items.forEach(function(item) { if (item && item.hash) byHash[item.hash] = item; });
+  var seen = {};
+  var urls = [];
+  selected.forEach(function(hash) {
+    var item = byHash[hash];
+    var url = item && item.url;
+    if (url && !seen[url]) { seen[url] = true; urls.push(url); }
+  });
+  if (!urls.length) { toast('选中的条目没有可复制URL', 'bad'); return; }
+  copyTextToClipboard(urls.join('\n'), '已复制 ' + urls.length + ' 条URL');
+}
+
+async function deleteSelected() {
+  var hashes = Object.keys(_selected);
+  if (!hashes.length) return;
+  showConfirm('确定删除已选 ' + hashes.length + ' 个缓存文件？', async function() {
+    try {
+      var r = await api.deleteCacheItems(hashes);
+      if (r.ok) { toast('已删除 ' + hashes.length + ' 个文件', 'ok'); _selected = {}; await loadList(); }
+      else toast('删除失败: ' + (r.error||''), 'bad');
+    } catch(e) { toast('删除异常: ' + e.message, 'bad'); }
+  });
+}
+async function clearAll() {
+  if (!_items.length) { toast('缓存已为空', 'ok'); return; }
+  showConfirm('确定清空全部 ' + _items.length + ' 个缓存文件？此操作不可撤销。', async function() {
+    try {
+      var r = await api.clearAllCache();
+      if (r.ok) { toast('全部缓存已清空', 'ok'); _selected = {}; await clearCaptureListIfEnabled(); await loadList(); }
+      else toast('清空失败: ' + (r.error||''), 'bad');
+    } catch(e) { toast('清空异常: ' + e.message, 'bad'); }
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// ── 捕获功能 ────────────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════════════
+
+async function initCapture() {
+  if (!api || !api.getCaptureConfig) return;
+  try {
+    var r = await api.getCaptureConfig();
+    _capEnabled = (r.mode && r.mode !== 'off');
+    // 同步后端捕获模式（确保每次窗口打开后状态一致）
+    if (api.setCaptureMode) {
+      await api.setCaptureMode(_capEnabled ? 'all' : 'off').catch(function(){});
+    }
+    // 拉取已有记录
+    var r2 = await api.getCapturedItems();
+    var raw = (r2 && r2.items) ? r2.items : [];
+    _capItems = _filterCapturedItems(raw);
+    updateCapToggleUI();
+    updateTabCapDot();
+    // ── 关键：若捕获正在进行，自动切换到捕获 tab ────────────────────────────
+    // 每次打开都是新窗口（overlay 是 close+recreate 不是 hide/show），
+    // 通过后端 mode 恢复用户上次的意图：捕获开着 → 直接进入捕获视图。
+    if (_capEnabled) switchTab('capture');
+  } catch(e) {}
+}
+
+// 过滤掉已缓存的条目（按 URL 路径去重）
+function _filterCapturedItems(items) {
+  var seen = new Set();
+  return items.filter(function(i) {
+    var p = _urlPath(i.url);
+    if (!p) return false;
+    if (_cachedPathSet.has(p)) return false;
+    if (seen.has(p)) return false;
+    seen.add(p);
+    return true;
+  });
+}
+
+// 视图过滤（改服/官服/其它）
+function _visibleCapItems() {
+  var items = _capItems;
+  if (_capFilterMode !== 'all') {
+    items = items.filter(function(i) { return (i.sourceType || 'other') === _capFilterMode; });
+  }
+  return items;
+}
+
+function updateCapToggleUI() {
+  var btn = document.getElementById('capToggleBtn');
+  if (!btn) return;
+  if (_capEnabled) {
+    btn.textContent = '◉ 捕获中';
+    btn.classList.add('on');
+  } else {
+    btn.textContent = '● 捕获已关闭';
+    btn.classList.remove('on');
+  }
+}
+
+function updateTabCapDot() {
+  var dot = document.getElementById('tabCapDot');
+  if (dot) dot.classList.toggle('on', _capEnabled);
+}
+
+function updateCapCount() {
+  var visible = _visibleCapItems();
+  // 徽章
+  var badge = document.getElementById('capCountBadge');
+  if (badge) badge.textContent = visible.length + ' 条';
+  // 统计条
+  var all      = _capItems.length;
+  var game     = _capItems.filter(function(i){ return i.sourceType==='game'; }).length;
+  var official = _capItems.filter(function(i){ return i.sourceType==='official'; }).length;
+  var other    = _capItems.filter(function(i){ return (i.sourceType||'other')==='other'; }).length;
+  setText('capStatAll',      all);
+  setText('capStatGame',     game);
+  setText('capStatOfficial', official);
+  setText('capStatOther',    other);
+}
+
+async function toggleCapture() {
+  _capEnabled = !_capEnabled;
+  if (api && api.setCaptureMode) {
+    await api.setCaptureMode(_capEnabled ? 'all' : 'off').catch(function(){});
+  }
+  updateCapToggleUI();
+  updateTabCapDot();
+  if (!_capEnabled) {
+    // 关闭时不清空已记录的条目
+    toast('捕获已关闭', 'ok');
+  } else {
+    toast('捕获已开启，列表仅显示未缓存请求', 'ok');
+  }
+}
+
+// 视图过滤切换（不影响 core-net 的捕获模式）
+function setCapFilter(mode) {
+  _capFilterMode = mode;
+  _lastCapUrl = null;
+  document.querySelectorAll('.cap-filter-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+  renderCapList();
+  updateCapCount();
+}
+
+// ── 捕获列表渲染 ──────────────────────────────────────────────────────────
+var _capListDelegated = false;
+function _ensureCapListDelegate() {
+  if (_capListDelegated) return;
+  _capListDelegated = true;
+  var wrap = document.getElementById('capListWrap');
+  if (!wrap) return;
+  wrap.addEventListener('click', function(e) {
+    if (e.target.classList.contains('cap-chk')) return;
+    var item = e.target.closest('.cap-item');
+    if (!item) return;
+    var url = item.dataset.url;
+    if (!url) return;
+    // 只有精确点中 URL 文本或复制按钮时才复制；点到同一行空白处只做选择。
+    if (e.target.classList.contains('cap-item-url') || e.target.classList.contains('cap-item-copy')) {
+      _copyUrl(url); return;
+    }
+    // 其余区域 → 立即切换选中状态，Shift 时按当前目标状态连选。
+    handleCapSelect(item, url, !_capSel[url], e.shiftKey);
+  });
+  wrap.addEventListener('change', function(e) {
+    if (!e.target.classList.contains('cap-chk')) return;
+    var item = e.target.closest('.cap-item');
+    if (!item) return;
+    var url = item.dataset.url;
+    handleCapSelect(item, url, e.target.checked, e.shiftKey);
+  });
+}
+
+function setCapItemSelected(item, url, selected) {
+  if (selected) _capSel[url] = true; else delete _capSel[url];
+  if (item) {
+    item.classList.toggle('selected', selected);
+    var chk = item.querySelector('.cap-chk');
+    if (chk) chk.checked = selected;
+  }
+  syncCapChkAll();
+}
+
+function refreshCapSelectionDom() {
+  document.querySelectorAll('#capListWrap .cap-item').forEach(function(el) {
+    var url = el.dataset.url;
+    var selected = !!_capSel[url];
+    el.classList.toggle('selected', selected);
+    var chk = el.querySelector('.cap-chk');
+    if (chk) chk.checked = selected;
+  });
+  syncCapChkAll();
+}
+
+function applyCapRange(toUrl, selected) {
+  var list = _visibleCapItems();
+  var from = -1, to = -1;
+  for (var i = 0; i < list.length; i++) {
+    if (list[i].url === _lastCapUrl) from = i;
+    if (list[i].url === toUrl) to = i;
+  }
+  if (from < 0 || to < 0) return false;
+  var a = Math.min(from, to), b = Math.max(from, to);
+  for (var j = a; j <= b; j++) {
+    if (selected) _capSel[list[j].url] = true;
+    else delete _capSel[list[j].url];
+  }
+  refreshCapSelectionDom();
+  return true;
+}
+
+function handleCapSelect(item, url, selected, shiftKey) {
+  if (shiftKey && _lastCapUrl && applyCapRange(url, selected)) {
+    _lastCapUrl = url;
+    return;
+  }
+  setCapItemSelected(item, url, selected);
+  _lastCapUrl = url;
+}
+
+function _copyUrl(u) {
+  var writeOp = (api && api.clipboardWrite) ? api.clipboardWrite(u) : Promise.resolve();
+  writeOp.then(function() {
+    try { navigator.clipboard.writeText(u); } catch(ex) {}
+    toast('已复制 ✓', 'ok');
+    var sb = document.getElementById('sbarLeft');
+    if (sb) { sb.textContent = '已复制: ' + u; sb.title = u; }
+  }).catch(function() {
+    try { navigator.clipboard.writeText(u).then(function(){ toast('已复制 ✓', 'ok'); }); } catch(ex) { toast('复制失败', 'bad'); }
+  });
+}
+
+function renderCapList() {
+  _ensureCapListDelegate();
+  var wrap  = document.getElementById('capListWrap');
+  var empty = document.getElementById('capEmptyState');
+  if (!wrap) return;
+  var list = _visibleCapItems();
+  Array.from(wrap.children).forEach(function(el) {
+    if (el.id !== 'capEmptyState') el.remove();
+  });
+  if (!list.length) {
+    empty.style.display = 'flex'; syncCapChkAll(); return;
+  }
+  empty.style.display = 'none';
+  // innerHTML 批量渲染，避免 N 次 DOM 操作
+  function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  var html = list.map(function(item, idx) {
+    var sel   = _capSel[item.url] ? ' selected' : '';
+    var st    = item.sourceType || 'other';
+    var stLbl = st === 'game' ? '改服' : st === 'official' ? '官服' : '其它';
+    var url   = _esc(item.url);
+    return '<div class="cap-item' + sel + '" data-url="' + url + '">' +
+      '<input type="checkbox" class="cap-chk"' + (_capSel[item.url] ? ' checked' : '') + '>' +
+      '<span class="cap-seq">' + (idx + 1) + '</span>' +
+      '<span class="cap-src-badge ' + st + '">' + stLbl + '</span>' +
+      '<span class="cap-item-url" title="点击复制">' + url + '</span>' +
+      '<span class="cap-item-copy">复制</span>' +
+      '</div>';
+  }).join('');
+  wrap.insertAdjacentHTML('beforeend', html);
+  syncCapChkAll();
+}
+
+function syncCapChkAll() {
+  var el = document.getElementById('capChkAll');
+  var visible = _visibleCapItems();
+  var total = visible.length;
+  var visibleSelCount = 0;
+  visible.forEach(function(i) { if (_capSel[i.url]) visibleSelCount++; });
+  if (el) {
+    el.checked = total > 0 && visibleSelCount === total;
+    el.indeterminate = visibleSelCount > 0 && visibleSelCount < total;
+  }
+  var selCount = Object.keys(_capSel).length;
+  var copyBtn = document.getElementById('capCopySel');
+  var delBtn = document.getElementById('capDeleteSel');
+  if (copyBtn) copyBtn.disabled = (selCount === 0);
+  if (delBtn) delBtn.disabled = (selCount === 0);
+}
+
+function capToggleAll(v) {
+  var list = _visibleCapItems();
+  if (v) { list.forEach(function(i){ _capSel[i.url] = true; }); }
+  else    { _capSel = {}; }
+  _lastCapUrl = null;
+  document.querySelectorAll('#capListWrap .cap-item').forEach(function(el) {
+    var sel = !!_capSel[el.dataset.url];
+    el.classList.toggle('selected', sel);
+    var chk = el.querySelector('.cap-chk'); if (chk) chk.checked = sel;
+  });
+  syncCapChkAll();
+}
+function capDeselectAll() { capToggleAll(false); }
+function capInvertSel() {
+  var list = _visibleCapItems();
+  list.forEach(function(i) {
+    if (_capSel[i.url]) delete _capSel[i.url]; else _capSel[i.url] = true;
+  });
+  _lastCapUrl = null;
+  document.querySelectorAll('#capListWrap .cap-item').forEach(function(el) {
+    var sel = !!_capSel[el.dataset.url];
+    el.classList.toggle('selected', sel);
+    var chk = el.querySelector('.cap-chk'); if (chk) chk.checked = sel;
+  });
+  syncCapChkAll();
+}
+
+function capCopySelected() {
+  var live = {};
+  _capItems.forEach(function(i) { if (i && i.url) live[i.url] = true; });
+  var urls = Object.keys(_capSel).filter(function(u) { return live[u]; });
+  if (!urls.length) { toast('请先选择捕获条目', 'bad'); return; }
+  copyTextToClipboard(urls.join('\n'), '已复制 ' + urls.length + ' 条URL');
+}
+
+async function capDeleteSelected() {
+  var urls = Object.keys(_capSel);
+  if (!urls.length) { toast('请先点击选择条目', 'bad'); return; }
+  var urlSet = new Set(urls);
+  _capItems = _capItems.filter(function(i) { return !urlSet.has(i.url); });
+  _capSel = {};
+  renderCapList(); updateCapCount();
+  toast('已删除 ' + urls.length + ' 条', 'ok');
+}
+
+async function capClearAll() {
+  _capItems = []; _capSel = {};
+  if (api && api.clearCapturedItems) await api.clearCapturedItems().catch(function(){});
+  renderCapList(); updateCapCount();
+  toast('已清空捕获列表', 'ok');
+}
+
+// ── 捕获列表轮询（每 800ms 拉取新增，同时过滤已缓存条目）────────────────
+// ── 捕获列表轮询（每 800ms 拉取，实时刷新显示）────────────────────────────
+// 检测变化策略：比较列表长度 + 第一条 URL（捕获列表新的在前，新增时第一条必变）
+var _capLastFingerprint = '';
+function _capFingerprint(items) {
+  if (!items.length) return '';
+  return items.length + '|' + items[0].url;
+}
+
+function startCapPoll() {
+  if (_capPollTimer) return;
+  _capPollTimer = setInterval(async function() {
+    if (!api || !api.getCapturedItems) return;
+    if (!_capEnabled) return; // 捕获关闭时停止轮询渲染
+    try {
+      var r = await api.getCapturedItems();
+      var raw = (r && r.items) ? r.items : [];
+      var filtered = _filterCapturedItems(raw);
+      var fp = _capFingerprint(filtered);
+      // 有变化（新增/删除/第一条变化）才更新
+      if (fp !== _capLastFingerprint) {
+        _capLastFingerprint = fp;
+        _capItems = filtered;
+        if (_activeTab === 'capture') { renderCapList(); }
+        updateCapCount();
+        updateTabCapDot();
+      }
+    } catch(e) {}
+  }, 800);
+}
+
+// 捕获刷新按钮（立即拉取，带旋转动画）
+async function doCapRefresh() {
+  var icon = document.getElementById('capRefreshIcon');
+  if (icon) icon.classList.add('spin');
+  try {
+    if (!api || !api.getCapturedItems) return;
+    var r = await api.getCapturedItems();
+    var raw = (r && r.items) ? r.items : [];
+    _capItems = _filterCapturedItems(raw);
+    _capLastFingerprint = _capFingerprint(_capItems);
+    renderCapList();
+    updateCapCount();
+    updateTabCapDot();
+    toast('已刷新，共 ' + _capItems.length + ' 条', 'ok');
+  } catch(e) { toast('刷新失败', 'bad'); }
+  finally {
+    setTimeout(function() { if (icon) icon.classList.remove('spin'); }, 400);
+  }
+}
+
+// ── 工具函数 ──────────────────────────────────────────────────────────────
+function fmtBytes(b) {
+  if (!b) return '0 B';
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(2) + ' MB';
+}
+function fmtTime(ts) {
+  if (!ts) return '—';
+  var d = new Date(ts);
+  return (d.getMonth()+1).toString().padStart(2,'0') + '/' +
+         d.getDate().toString().padStart(2,'0') + ' ' +
+         d.getHours().toString().padStart(2,'0') + ':' +
+         d.getMinutes().toString().padStart(2,'0');
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function setText(id, v) { var el=document.getElementById(id); if(el) el.textContent=v; }
+function toast(msg, type) {
+  var t = document.getElementById('toast');
+  if (!t) return;
+  if (_toastTimer) clearTimeout(_toastTimer);
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' '+type : '');
+  _toastTimer = setTimeout(function(){ t.className='toast'; }, 2500);
+}
+</script>
+</body></html>

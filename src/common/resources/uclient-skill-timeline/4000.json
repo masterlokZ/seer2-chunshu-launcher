@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "sourceId": 4000,
+  "generatedAt": "2026-08-28T19:10:38.7607154Z",
+  "enabled": true,
+  "conversionPolicy": "transparent-png-black-flatten-flv1-avm2-screen-wrapper-v2",
+  "width": 1200,
+  "height": 660,
+  "frameRate": 30,
+  "file": "uclient-skill-timeline.swf",
+  "bytes": 14852294,
+  "sha256": "5BD1D7D4F9ED1C31199FE61725F8735BA43882F1A0ECDAB557ECFA35FEE2ACB3",
+  "selfContained": true,
+  "blendMode": "screen",
+  "actions": [
+    {
+      "action": "appear",
+      "durationSeconds": 5.666666984557,
+      "frameCount": 172,
+      "backgroundMode": "none",
+      "backgroundWindows": []
+    },
+    {
+      "action": "attack",
+      "durationSeconds": 4.266666666666,
+      "frameCount": 129,
+      "backgroundMode": "none",
+      "backgroundWindows": []
+    },
+    {
+      "action": "cp",
+      "durationSeconds": 3.999999999999,
+      "frameCount": 121,
+      "backgroundMode": "viewport",
+      "backgroundGeometry": {
+        "renderPolicy": "crop-scale-to-canvas-v1",
+        "sourceSize": {
+          "width": 1200,
+          "height": 660
+        },
+        "authoredBounds": {
+          "x": 0,
+          "y": 86,
+          "width": 1200,
+          "height": 504
+        },
+        "renderBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 660
+        }
+      },
+      "backgroundWindows": [
+        {
+          "startFrame": 6,
+          "endFrame": 118,
+          "startSeconds": 0.2,
+          "endSeconds": 3.966667,
+          "mode": "viewport",
+          "backgroundGeometry": {
+            "renderPolicy": "crop-scale-to-canvas-v1",
+            "sourceSize": {
+              "width": 1200,
+              "height": 660
+            },
+            "authoredBounds": {
+              "x": 0,
+              "y": 86,
+              "width": 1200,
+              "height": 504
+            },
+            "renderBounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1200,
+              "height": 660
+            }
+          }
+        }
+      ]
+    },
+    {
+      "action": "hidemove",
+      "durationSeconds": 11.150003814696,
+      "frameCount": 336,
+      "backgroundMode": "fullscreen",
+      "backgroundGeometry": {
+        "renderPolicy": "full-canvas-v1",
+        "sourceSize": {
+          "width": 1200,
+          "height": 660
+        },
+        "authoredBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 660
+        },
+        "renderBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 660
+        }
+      },
+      "backgroundWindows": [
+        {
+          "startFrame": 7,
+          "endFrame": 328,
+          "startSeconds": 0.233333,
+          "endSeconds": 10.966667,
+          "mode": "fullscreen",
+          "backgroundGeometry": {
+            "renderPolicy": "full-canvas-v1",
+            "sourceSize": {
+              "width": 1200,
+              "height": 660
+            },
+            "authoredBounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1200,
+              "height": 660
+            },
+            "renderBounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1200,
+              "height": 660
+            }
+          }
+        }
+      ]
+    },
+    {
+      "action": "sa",
+      "durationSeconds": 6.116666666666,
+      "frameCount": 185,
+      "backgroundMode": "viewport",
+      "backgroundGeometry": {
+        "renderPolicy": "crop-scale-to-canvas-v1",
+        "sourceSize": {
+          "width": 1200,
+          "height": 660
+        },
+        "authoredBounds": {
+          "x": 0,
+          "y": 86,
+          "width": 1200,
+          "height": 504
+        },
+        "renderBounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1200,
+          "height": 660
+        }
+      },
+      "backgroundWindows": [
+        {
+          "startFrame": 6,
+          "endFrame": 184,
+          "startSeconds": 0.2,
+          "endSeconds": 6.116667,
+          "mode": "viewport",
+          "backgroundGeometry": {
+            "renderPolicy": "crop-scale-to-canvas-v1",
+            "sourceSize": {
+              "width": 1200,
+              "height": 660
+            },
+            "authoredBounds": {
+              "x": 0,
+              "y": 86,
+              "width": 1200,
+              "height": 504
+            },
+            "renderBounds": {
+              "x": 0,
+              "y": 0,
+              "width": 1200,
+              "height": 660
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "profileFingerprint": "963B6261E33CE1C55F659C7391074D14070AFCC3FBAAA92D03AA135A9F4D4559",
+  "spineSkeletonSha256": "C25C30048B1AE8E17F330238655909371FCD39A8975302CE28CFAE6B5E9318CA",
+  "resourcePlanVersion": 3,
+  "resourcePlanClosureSha256": "7D6801A3EE42B51AF077EB17A73724252DD4214500BAAAC43E6C00B8A8FF064D"
+}
