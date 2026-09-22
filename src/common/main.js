@@ -61,6 +61,16 @@ const {
 } = require('./modules/uclient-embedded-cinematic');
 const { createCustomSkinSwfUtils } = require('./modules/custom-skin-swf-utils');
 const { createSeer1RobotCoreParser } = require('./modules/seer1-robotcore-parser');
+const IS_X64_RUNTIME = process.arch === 'x64';
+const CUSTOM_SKIN_ARCH_POLICY = Object.freeze({
+  httpSockets:IS_X64_RUNTIME ? 12 : 6,
+  httpFreeSockets:IS_X64_RUNTIME ? 8 : 4,
+  normalMaxBytes:(IS_X64_RUNTIME ? 96 : 48) * 1024 * 1024,
+  fightMaxBytes:(IS_X64_RUNTIME ? 128 : 64) * 1024 * 1024,
+  ultimateMaxBytes:(IS_X64_RUNTIME ? 128 : 64) * 1024 * 1024,
+  iconMaxBytes:8 * 1024 * 1024,
+  uClientStageWorkers:IS_X64_RUNTIME ? 4 : 2,
+});
 const officialBattleRouting = createOfficialBattleRouting(
   require('./resources/traditional-swf-routing.json'));
 const customSkinSwfUtils = createCustomSkinSwfUtils({ parseId:parseCustomSkinId });
@@ -5218,8 +5228,16 @@ function publishCommittedCustomSkinDownloadInventory(suiteCommit, formalImportRe
   return advanced;
 }
 
-const _skinDownloadHttpAgent = new http.Agent({ keepAlive: true, maxSockets: 6, maxFreeSockets: 4 });
-const _skinDownloadHttpsAgent = new https.Agent({ keepAlive: true, maxSockets: 6, maxFreeSockets: 4 });
+const _skinDownloadHttpAgent = new http.Agent({
+  keepAlive:true,
+  maxSockets:CUSTOM_SKIN_ARCH_POLICY.httpSockets,
+  maxFreeSockets:CUSTOM_SKIN_ARCH_POLICY.httpFreeSockets,
+});
+const _skinDownloadHttpsAgent = new https.Agent({
+  keepAlive:true,
+  maxSockets:CUSTOM_SKIN_ARCH_POLICY.httpSockets,
+  maxFreeSockets:CUSTOM_SKIN_ARCH_POLICY.httpFreeSockets,
+});
 
 function fetchCustomSkinBuffer(sourceUrl, timeoutMs, redirects, maxBytes, onProgress) {
   return new Promise(function(resolve, reject) {
@@ -5312,7 +5330,7 @@ const CUSTOM_SKIN_OFFICIAL_DOWNLOAD_TYPES = {
   normal: {
     label:'官方跟随模型',
     file:'normal.swf',
-    maxBytes:48 * 1024 * 1024,
+    maxBytes:CUSTOM_SKIN_ARCH_POLICY.normalMaxBytes,
     url:function(id) { return 'https://seer.61.com/resource/groupFightResource/pet/' + id + '.swf'; },
     compatibilityUrl:function(id) { return 'http://seer.61.com/resource/groupFightResource/pet/' + id + '.swf'; },
   },
@@ -5320,7 +5338,7 @@ const CUSTOM_SKIN_OFFICIAL_DOWNLOAD_TYPES = {
     label:'官方战斗模型',
     file:'fight.swf',
     resourceKey:'fight',
-    maxBytes:64 * 1024 * 1024,
+    maxBytes:CUSTOM_SKIN_ARCH_POLICY.fightMaxBytes,
     url:function(id) { return 'https://seer.61.com/resource/fightResource/pet/swf/' + id + '.swf'; },
     compatibilityUrl:function(id) { return 'http://seer.61.com/resource/fightResource/pet/swf/' + id + '.swf'; },
   },
@@ -5328,14 +5346,14 @@ const CUSTOM_SKIN_OFFICIAL_DOWNLOAD_TYPES = {
     label:'第五技能独立特效',
     file:'skill.swf',
     resourceKey:'skill',
-    maxBytes:64 * 1024 * 1024,
+    maxBytes:CUSTOM_SKIN_ARCH_POLICY.ultimateMaxBytes,
     url:function(id) { return 'https://seer.61.com/resource/fightResource/skill/swf/' + id + '.swf'; },
     compatibilityUrl:function(id) { return 'http://seer.61.com/resource/fightResource/skill/swf/' + id + '.swf'; },
   },
   icon: {
     label:'官方头像',
     file:'icon.swf',
-    maxBytes:8 * 1024 * 1024,
+    maxBytes:CUSTOM_SKIN_ARCH_POLICY.iconMaxBytes,
     url:function(id) { return 'https://seer.61.com/resource/pet/head/' + id + '.swf'; },
     compatibilityUrl:function(id) { return 'http://seer.61.com/resource/pet/head/' + id + '.swf'; },
   },
@@ -8468,7 +8486,8 @@ async function fetchSeer1GroupFightEffect(effectMeta, transferConfig) {
     throw missing;
   }
   var config = Object.assign({}, transferConfig || {}, {
-    maxBytes:Math.max(Number(transferConfig && transferConfig.maxBytes) || 0, 64 * 1024 * 1024),
+    maxBytes:Math.max(Number(transferConfig && transferConfig.maxBytes) || 0,
+      CUSTOM_SKIN_ARCH_POLICY.ultimateMaxBytes),
     url:function() { return 'https://seer.61.com/resource/groupFightResource/skill/' + effectName + '.swf'; },
     compatibilityUrl:function() { return 'http://seer.61.com/resource/groupFightResource/skill/' + effectName + '.swf'; },
   });
@@ -9808,7 +9827,7 @@ async function stageUClientBatchBundles(jobs, directory, forceManifestRefresh, f
   if (!candidates.length) return result;
   var current = await getCurrentUClientPetManifest(!!forceManifestRefresh);
   var queue = candidates.slice();
-  var workerCount = Math.min(2, queue.length);
+  var workerCount = Math.min(CUSTOM_SKIN_ARCH_POLICY.uClientStageWorkers, queue.length);
   var completed = 0;
   // A normal/fight pair for the same source id may be claimed by different
   // staging workers.  Cache the in-flight begin promise synchronously so both

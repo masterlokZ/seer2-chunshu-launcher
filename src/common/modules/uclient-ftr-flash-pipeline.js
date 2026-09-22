@@ -401,7 +401,8 @@ function createUClientFtrFlashPipeline(dependencies) {
     return uClientFtrNativeConverter.convert(Object.assign({}, payload, {
       executable:nativeConverter.executable,
       expectedArchitecture:nativeConverter.architecture,
-      tileEdge:1024,
+      tileEdge:nativeConverter.architecture === 'x64' ? 2048 : 1024,
+      compressionConcurrency:nativeConverter.architecture === 'x64' ? 4 : 2,
       outputScale:UClientFtr_FLASH_OUTPUT_SCALE,
       timeoutMilliseconds:600000,
     }));

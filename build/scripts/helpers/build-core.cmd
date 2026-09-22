@@ -237,6 +237,23 @@ if errorlevel 1 (
     popd
     goto :fail
 )
+
+rem -- Architecture-native runtime gate ---------------------------------------
+if /I "%ARCH%"=="x64" (
+    set "EXPECTED_PE_MACHINE=34404"
+    set "NATIVE_ARCH_FILES=flash\pepflashplayer64_34_0_0_330.dll scanner-x64.exe speedhook_ce_x64.dll speedhook\ce_injector.exe uclient-pet-extractor-x64.exe Seer2UClientFtrAtlasConverter-x64.exe"
+) else (
+    set "EXPECTED_PE_MACHINE=332"
+    set "NATIVE_ARCH_FILES=flash\pepflashplayer32_34_0_0_330.dll scanner-x86.exe speedhook_ce_ia32.dll uclient-pet-extractor.exe Seer2UClientFtrAtlasConverter-x86.exe"
+)
+call node -e "const fs=require('fs'),path=require('path'),expected=Number(process.argv[1]),root=process.argv[2];for(const rel of process.argv.slice(3)){const file=path.join(root,rel);if(fs.existsSync(file)===false)throw new Error('missing native runtime: '+file);const b=fs.readFileSync(file);if(b.length<64)throw new Error('invalid PE runtime: '+file);const pe=b.readUInt32LE(60),machine=b.readUInt16LE(pe+4);if(machine===expected)continue;throw new Error('wrong PE machine 0x'+machine.toString(16)+' for '+file);}console.log('native runtime gate OK:',process.argv.slice(3).length,'files');" "%EXPECTED_PE_MACHINE%" "%WS_DIR%" %NATIVE_ARCH_FILES% >>"%LOG_FILE%" 2>&1
+if errorlevel 1 (
+    echo %TAG% FATAL: %ARCH_DISPLAY% 原生运行组件缺失或位数错误 ^(见 %LOG_FILE%^)
+    popd
+    goto :fail
+)
+echo %TAG%      %ARCH_DISPLAY% native runtime gate passed
+
 if "%OBF%"=="1" (
     echo %TAG%      在 workspace 内运行 build-obfuscate.js
     call node build-obfuscate.js >>"%LOG_FILE%" 2>&1

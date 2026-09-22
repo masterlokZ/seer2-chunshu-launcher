@@ -233,9 +233,8 @@ async function convert(payload) {
       }
     }
     // The native converter has already emitted every raw page to disk, so
-    // zlib compression is the only remaining CPU-bound stage.  Keep this at two
-    // workers: it overlaps independent level-9 streams without multiplying the
-    // x32 conversion residency or recreating the old unbounded batch pressure.
+    // zlib compression is the only remaining CPU-bound stage.  x32 remains at
+    // two streams; x64 may use four without recreating unbounded batch pressure.
     // Preserve array order so the marker and final SWF remain byte-identical to
     // the historical sequential implementation.
     var definitions = new Array(pages.length);
@@ -274,7 +273,10 @@ async function convert(payload) {
       }
     }
     var compressionWorkers = [];
-    var compressionConcurrency = Math.min(2, pages.length);
+    var requestedCompressionConcurrency = safeInteger(
+      payload.compressionConcurrency == null ? 2 : payload.compressionConcurrency,
+      1, 4, 'compression concurrency');
+    var compressionConcurrency = Math.min(requestedCompressionConcurrency, pages.length);
     for (var compressionWorker = 0; compressionWorker < compressionConcurrency; compressionWorker++) {
       compressionWorkers.push(compressNextPage());
     }
