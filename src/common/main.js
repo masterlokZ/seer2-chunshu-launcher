@@ -112,6 +112,21 @@ if (process.env.LAUNCHER_AUTOTEST === '1' && process.env.LAUNCHER_AUTOTEST_USER_
   }
 }
 
+// userData 便携模式: 跟 GameCache 同样的可写性检测
+// exe 目录可写 → userData 放在 exe 旁边的 user-data/ 文件夹
+// exe 目录不可写 (UAC/Program Files) → 回退默认 AppData 路径
+try {
+  var _portableUserDataDir = path.join(path.dirname(app.getPath('exe')), 'user-data');
+  fs.mkdirSync(_portableUserDataDir, { recursive: true });
+  var _probeFile = path.join(_portableUserDataDir, '.write_test_' + Date.now());
+  fs.writeFileSync(_probeFile, 'ok');
+  fs.unlinkSync(_probeFile);
+  app.setPath('userData', _portableUserDataDir);
+  console.log('[PORTABLE] userData → ' + _portableUserDataDir);
+} catch(_) {
+  console.log('[PORTABLE] exe dir not writable, keeping default userData: ' + app.getPath('userData'));
+}
+
 const EARLY_QUALITY_CONFIG_FILE = app.isPackaged
   ? path.join(path.dirname(process.execPath), 'quality-config.json')
   : path.join(__dirname, 'quality-config.json');
