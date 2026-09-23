@@ -10640,7 +10640,7 @@ async function downloadOfficialCustomSkinModels(request, sender) {
           limitedResult.suiteTransactionCleanupErrors =
             await finalizeSourceSuiteTransactions(suiteTransactions);
           if (shouldEnableImported || (limitedResult.autoImportResult && limitedResult.autoImportResult.anyEnabledUpdated)) {
-            scheduleCustomSkinReload();
+            limitedResult.gameReload = await doReload();
           }
           finalResult = limitedResult;
           return limitedResult;
@@ -10692,7 +10692,7 @@ async function downloadOfficialCustomSkinModels(request, sender) {
     }
     result.suiteTransactionCleanupErrors = await finalizeSourceSuiteTransactions(suiteTransactions);
     if (shouldEnableImported || (result.autoImportResult && result.autoImportResult.anyEnabledUpdated)) {
-      scheduleCustomSkinReload();
+      result.gameReload = await doReload();
     }
     finalResult = result;
     return result;
