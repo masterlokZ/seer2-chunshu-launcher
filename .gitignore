@@ -11,6 +11,8 @@ seer2-春树登陆器.exe
 *.asar
 *.pak
 *.dll
+!src/common/speedhook_ce_ia32.dll
+!src/common/speedhook_ce_x64.dll
 *.dat
 *.bin
 *.json.bak
