@@ -74,7 +74,6 @@ function normalizeConfig(current, update) {
     // 帧放大：开启时（true）每帧矢量重绘极清，关闭时（false）平滑拉伸防卡顿；
     // 两种模式下画面均随窗口等比铺满，画质 100% 保持用户配置，严禁被开关篡改。
     frameZoom:requestedFrameZoom === undefined ? true : requestedFrameZoom !== false,
-    uClientRenderMode:'cpu',
   };
   return next;
 }

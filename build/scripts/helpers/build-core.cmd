@@ -148,7 +148,7 @@ if exist "%WS_DIR%" (
 mkdir "%WS_DIR%" >>"%LOG_FILE%" 2>&1
 
 rem -- Step 1: 复制 common 到 workspace ------------------------------------
-echo %TAG% [1/7] 复制 src\common -> workspace
+echo %TAG% [1/7] 复制 src\common 到 workspace
 robocopy "%COMMON_DIR%" "%WS_DIR%" /E /XF "*.log" "*.bak" "*.bak.*" "*.tmp" /XD "%COMMON_DIR%\node_modules" "%COMMON_DIR%\dist-build" /NP /NFL /NDL /NJH /NJS >>"%LOG_FILE%" 2>&1
 set "RC=!errorlevel!"
 if !RC! GEQ 8 (
@@ -239,12 +239,13 @@ if errorlevel 1 (
 )
 
 rem -- Architecture-native runtime gate ---------------------------------------
+rem ia32 注入路径由 main.js 走 PowerShell 回退；speedhook\ce_injector.exe 仅为 x64 预编译加速器
 if /I "%ARCH%"=="x64" (
     set "EXPECTED_PE_MACHINE=34404"
-    set "NATIVE_ARCH_FILES=flash\pepflashplayer64_34_0_0_330.dll scanner-x64.exe speedhook_ce_x64.dll speedhook\ce_injector.exe uclient-pet-extractor-x64.exe Seer2UClientFtrAtlasConverter-x64.exe"
+    set "NATIVE_ARCH_FILES=flash\pepflashplayer64_34_0_0_330.dll scanner-x64.exe speedhook_ce_x64.dll speedhook\ce_injector.exe"
 ) else (
     set "EXPECTED_PE_MACHINE=332"
-    set "NATIVE_ARCH_FILES=flash\pepflashplayer32_34_0_0_330.dll scanner-x86.exe speedhook_ce_ia32.dll uclient-pet-extractor.exe Seer2UClientFtrAtlasConverter-x86.exe"
+    set "NATIVE_ARCH_FILES=flash\pepflashplayer32_34_0_0_330.dll scanner-x86.exe speedhook_ce_ia32.dll"
 )
 call node -e "const fs=require('fs'),path=require('path'),expected=Number(process.argv[1]),root=process.argv[2];for(const rel of process.argv.slice(3)){const file=path.join(root,rel);if(fs.existsSync(file)===false)throw new Error('missing native runtime: '+file);const b=fs.readFileSync(file);if(b.length<64)throw new Error('invalid PE runtime: '+file);const pe=b.readUInt32LE(60),machine=b.readUInt16LE(pe+4);if(machine===expected)continue;throw new Error('wrong PE machine 0x'+machine.toString(16)+' for '+file);}console.log('native runtime gate OK:',process.argv.slice(3).length,'files');" "%EXPECTED_PE_MACHINE%" "%WS_DIR%" %NATIVE_ARCH_FILES% >>"%LOG_FILE%" 2>&1
 if errorlevel 1 (

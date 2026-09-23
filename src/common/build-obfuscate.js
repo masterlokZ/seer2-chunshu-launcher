@@ -7,8 +7,7 @@
  *
  * 轻量混淆目标 (LIGHT):
  *   core-net.js,                          — 网络拦截层, 之前完全明文暴露服务器 URL
- *   custom-skin-sol.js, swf-battle-capability.js, uclient-ftr-x86-converter.js,
- *   modules/*.js (33 个)
+ *   modules/*.js
  *
  * LIGHT 配置只 compact + hexadecimal 变量名, 不做控制流平坦化/死代码/字符串数组,
  * 对运行时性能零影响。core-net.js 之前完全明文暴露服务器 URL, 现在加 LIGHT 加固。
@@ -42,9 +41,6 @@ const PRIMARY_TARGET_FILES = [
 
 const LIGHT_TOP_LEVEL_FILES = [
   'core-net.js',
-  'custom-skin-sol.js',
-  'swf-battle-capability.js',
-  'uclient-ftr-x86-converter.js',
 ];
 
 const OBFUSCATION_OPTIONS = {

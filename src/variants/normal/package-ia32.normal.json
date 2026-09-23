@@ -26,19 +26,6 @@
     "!speedhook/injector_src.cs",
     "!speedhook/compile-injector.bat",
     "!scanner-x64.exe",
-    "!Seer2UClientFtrAtlasConverter-x64.exe",
-    "!uclient-pet-extractor-x64.exe",
-    "!core-net.20260810-before-v4-registry.bak.js",
-    "!uclient-ftr-x86-converter/**",
-    "!uclient-spine-adapter/**",
-    "!uclient-universal-battle-adapter/**",
-    "!uclient-ftr-battle-adapter/**",
-    "!uclient-ftr-battle-template/**",
-    "!uclient-ftr-follow-template/**",
-    "!uclient-video-template/**",
-    "!uclient-spine-template/placeholder.atlas",
-    "!uclient-spine-template/placeholder.json",
-    "!uclient-spine-template/placeholder.skel",
     "!**/*.as",
     "!**/*.cpp",
     "!**/*.h",
@@ -80,9 +67,7 @@
     "**/scanner.ps1",
     "**/scanner-x86.exe",
     "**/speedhook_ce_ia32.dll",
-    "**/speedhook/ce_injector.exe",
-    "**/uclient-pet-extractor.exe",
-    "**/Seer2UClientFtrAtlasConverter-x86.exe"
+    "**/speedhook/ce_injector.exe"
   ],
   "extraResources": [
     {

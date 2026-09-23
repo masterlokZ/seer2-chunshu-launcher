@@ -38,10 +38,4 @@
 !macro customInstall
   Delete "$INSTDIR\local-res\对战版by_春树.swf"
   Delete "$INSTDIR\local-res\对战版by_春树_61.swf"
-  FileOpen $0 "$INSTDIR\catalog-navigation-reset.pending" w
-  FileWrite $0 "reset-navigation-on-next-launch"
-  FileClose $0
-  FileOpen $0 "$INSTDIR\skin-assignment-reset.pending" w
-  FileWrite $0 "reset-skin-assignments-on-next-launch"
-  FileClose $0
 !macroend

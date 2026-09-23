@@ -5,14 +5,12 @@ const DEFAULT_CONFIG = Object.freeze({
   // 帧放大：开启时（true）每帧矢量重绘极清，关闭时（false）平滑拉伸防卡顿；
   // 两种模式下画面均根据窗口大小等比放大并完整铺满窗口。
   frameZoom:false,
-  uClientRenderMode:'cpu',
 });
 
 // Native Flash stage quality values.  Keep this list deliberately small and
 // explicit so malformed/legacy config files cannot inject arbitrary markup.
 // `best` is the highest native Flash quality (more expensive rasterization).
 const VALID_QUALITIES = Object.freeze(['low','medium','high','best']);
-const VALID_UClient_RENDER_MODES = Object.freeze(['cpu']);
 
 function normalizeConfig(value) {
   value = value || {};
@@ -29,7 +27,6 @@ function normalizeConfig(value) {
   return {
     quality:quality,
     frameZoom:frameZoom,
-    uClientRenderMode:'cpu',
   };
 }
 
@@ -47,7 +44,6 @@ function writeConfig(fs, file, value) {
       version:3,
       quality:config.quality,
       frameZoom:config.frameZoom,
-      uClientRenderMode:config.uClientRenderMode,
       updatedAt:new Date().toISOString(),
     }, null, 2), 'utf8');
     return { ok:true, config:config };
@@ -122,7 +118,6 @@ function appendChromiumSwitches(app, arch) {
 module.exports = {
   DEFAULT_CONFIG:DEFAULT_CONFIG,
   VALID_QUALITIES:VALID_QUALITIES,
-  VALID_UClient_RENDER_MODES:VALID_UClient_RENDER_MODES,
   normalizeConfig:normalizeConfig,
   readConfig:readConfig,
   writeConfig:writeConfig,
