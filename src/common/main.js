@@ -15214,7 +15214,7 @@ ipcMain.handle('clear-captured-items', function() {
   return { ok: true };
 });
 ipcMain.handle('set-game-speed', async function(_, speedFactor) {
-  speedFactor = Math.max(0.1, Math.min(3.0, Number(speedFactor) || 1.0));
+  speedFactor = Math.max(0.01, Math.min(3.0, Number(speedFactor) || 1.0));
   _currentGameSpeed = speedFactor;
 
   if (!gameWin || gameWin.isDestroyed())

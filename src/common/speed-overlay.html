@@ -39,7 +39,7 @@ button:focus{outline:none;}
 .badge.fast {background:rgba(0,212,255,.10); color:var(--pri);border:1px solid rgba(0,212,255,.25);}
 .badge.xfast{background:rgba(168,85,247,.10);color:#a855f7;border:1px solid rgba(168,85,247,.25);}
 .slider-wrap{width:100%;display:flex;align-items:center;gap:8px;}
-.slbl{font-size:9.5px;color:var(--dim);width:28px;flex-shrink:0;}
+.slbl{font-size:9px;color:var(--dim);width:34px;flex-shrink:0;}
 .slbl.r{text-align:right;}
 input[type=range]{flex:1;height:4px;-webkit-appearance:none;appearance:none;border-radius:2px;outline:none;cursor:pointer;}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;cursor:pointer;}
@@ -79,11 +79,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;heigh
     <span class="badge norm" id="sBadge">正常速度</span>
   </div>
   <div class="slider-wrap">
-    <span class="slbl">0.1x</span>
-    <input type="range" id="slider" min="1" max="30" step="1" value="10">
+    <span class="slbl">0.01x</span>
+    <input type="range" id="slider" min="0" max="30" step="1" value="10">
     <span class="slbl r">3.0x</span>
   </div>
   <div class="presets">
+    <button class="pbtn" id="p001" onclick="setP(0.01)">0.01x</button>
     <button class="pbtn" id="p01" onclick="setP(0.1)">0.1x</button>
     <button class="pbtn" id="p05" onclick="setP(0.5)">0.5x</button>
     <button class="pbtn active" id="p10" onclick="setP(1.0)">1x</button>
@@ -112,25 +113,40 @@ var _ds=null;
 function thumb(c){if(!_ds){_ds=document.createElement('style');document.head.appendChild(_ds);}
 _ds.textContent='input[type=range]::-webkit-slider-thumb{background:'+c+';box-shadow:0 0 8px '+c+';}'; }
 
+function fmtS(s){
+  return s < 0.1 ? Number(s).toFixed(2) : Number(s).toFixed(1);
+}
+function valToSpeed(v){
+  v = Number(v);
+  return v <= 0 ? 0.01 : v / 10;
+}
+function speedToVal(s){
+  s = Number(s);
+  return s < 0.05 ? 0 : Math.round(s * 10);
+}
+
 function renderUI(s){
   var c=C(s);
-  document.getElementById('sVal').textContent=s.toFixed(1);
+  document.getElementById('sVal').textContent=fmtS(s);
   document.getElementById('sVal').style.color=c;
   thumb(c);
-  var pct=((s-0.1)/2.9)*100;
+  var sliderVal=speedToVal(s);
+  var pct=(sliderVal/30)*100;
   document.getElementById('slider').style.background='linear-gradient(to right,'+c+' '+pct+'%,rgba(255,255,255,.1) '+pct+'%)';
   var b=document.getElementById('sBadge');
   if(s<1.0){b.className='badge slow';b.textContent='减速模式';}
   else if(s===1.0){b.className='badge norm';b.textContent='正常速度';}
   else if(s<=2.0){b.className='badge fast';b.textContent='加速模式';}
   else{b.className='badge xfast';b.textContent='极速模式';}
-  var map={p01:0.1,p05:0.5,p10:1.0,p20:2.0,p30:3.0};
+  var map={p001:0.01,p01:0.1,p05:0.5,p10:1.0,p20:2.0,p30:3.0};
   Object.keys(map).forEach(function(id){
-    var btn=document.getElementById(id),active=Math.abs(map[id]-s)<0.005;
+    var btn=document.getElementById(id);
+    if(!btn) return;
+    var active=Math.abs(map[id]-s)<0.005;
     btn.classList.toggle('active',active);
     btn.style.background=active?c:''; btn.style.color=active?'#000':''; btn.style.borderColor=active?'transparent':'';
   });
-  document.getElementById('sfps').textContent=Math.round(24*s)+' fps';
+  document.getElementById('sfps').textContent=(s<0.1?(24*s).toFixed(2):Math.round(24*s))+' fps';
 }
 
 function setSt(lv,msg){document.getElementById('sdot').className='sdot '+(lv||'idle');document.getElementById('stxt').textContent=msg;}
@@ -155,7 +171,7 @@ function applySpeed(speed,force){
       if(r.ok){
         hideErr();
         if(r.method==='normal') setSt('ok','已恢复正常速度');
-        else setSt('ok','SpeedHook生效 · timeGetTime×'+speed.toFixed(1)+' · PID='+r.pid);
+        else setSt('ok','SpeedHook生效 · timeGetTime×'+fmtS(speed)+' · PID='+r.pid);
       } else {
         var e=r.error||'未知错误';
         // ── 静默吸收 Reload 竞态导致的管道错误 ─────────────────────────────
@@ -185,8 +201,8 @@ function applySpeed(speed,force){
 
 function retryApply(){hideErr();setSt('busy','重试中…');applySpeed(_lastSpeed,true);}
 
-document.getElementById('slider').addEventListener('input',function(){applySpeed(parseInt(this.value,10)/10);});
-function setP(s){document.getElementById('slider').value=Math.round(s*10);applySpeed(s);}
+document.getElementById('slider').addEventListener('input',function(){applySpeed(valToSpeed(this.value));});
+function setP(s){document.getElementById('slider').value=speedToVal(s);applySpeed(s);}
 function togglePin(){
   _pinned=!_pinned;
   var btn=document.getElementById('btnPin');
@@ -208,12 +224,12 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')window.close
   api.getGameSpeed().then(function(r){
     if(!r){setSt('warn','状态查询失败');renderUI(1.0);return;}
     var s=r.speed||1.0; _lastSpeed=s;
-    document.getElementById('slider').value=Math.round(s*10);
+    document.getElementById('slider').value=speedToVal(s);
     renderUI(s);
     if(!r.running){
       setSt('warn','游戏未运行');
     } else if(r.hooked){
-      setSt('ok','变速生效中 · ×'+s.toFixed(1));
+      setSt('ok','变速生效中 · ×'+fmtS(s));
     } else if(Math.abs(s-1.0)<0.005){
       var pidInfo='ppapi='+r.ppPid+' render='+r.rnPid;
       setSt('ok','游戏运行中 · 正常速度 · '+pidInfo);
@@ -235,7 +251,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')window.close
       clearTimeout(_debounce); _debounce=null;
       var s=(d&&d.speed)||1.0;
       _lastSpeed=s;
-      document.getElementById('slider').value=Math.round(s*10);
+      document.getElementById('slider').value=speedToVal(s);
       renderUI(s);
       hideErr();
       setSt('ok','游戏已刷新 · 已恢复正常速度');
