@@ -13795,19 +13795,15 @@ ipcMain.on('image-win-pinned',    function(event, pinned) {
     var w = _imageWins[k];
     if (!w || w.isDestroyed() || w.webContents.id !== event.sender.id) return;
     _imageWinPins[k] = !!pinned;
+    try { w.setFocusable(true); } catch(_) {}
     if (pinned) {
       w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu');
-      try { w.setFocusable(false); } catch(_) {}
     } else {
-      try { w.setFocusable(true); } catch(_) {}
       if (_alwaysOnTop) {
         w.setAlwaysOnTop(true, 'pop-up-menu');
       } else {
         w.setAlwaysOnTop(false);
       }
-    }
-    if (gameWin && !gameWin.isDestroyed()) {
-      try { gameWin.focus(); } catch(_) {}
     }
   });
 });
