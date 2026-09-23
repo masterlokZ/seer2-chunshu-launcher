@@ -195,7 +195,22 @@ function _resolveReplaceFile(file) {
   if (file.startsWith('./') || file.startsWith('.\\')) {
     if (!_localSwfDir) return file;
     const relative = file.slice(2).replace(/[\/\\]+/g, require('path').sep); // 去掉 ./ 并统一路径分隔符
-    return require('path').join(_localSwfDir, relative);
+    const primary = require('path').join(_localSwfDir, relative);
+    if (fs.existsSync(primary)) return primary;
+    if (relative === 'CoreDLL.swf') {
+      const fallback = require('path').join(_localSwfDir, 'skin-mode', 'CoreDLL.swf');
+      if (fs.existsSync(fallback)) return fallback;
+    } else if (relative === 'skin-mode' + require('path').sep + 'CoreDLL.swf') {
+      const fallback = require('path').join(_localSwfDir, 'CoreDLL.swf');
+      if (fs.existsSync(fallback)) return fallback;
+    } else if (relative === 'FramePlayer.swf') {
+      const fallback = require('path').join(_localSwfDir, 'skin-mode', 'FramePlayer.swf');
+      if (fs.existsSync(fallback)) return fallback;
+    } else if (relative === 'skin-mode' + require('path').sep + 'FramePlayer.swf') {
+      const fallback = require('path').join(_localSwfDir, 'FramePlayer.swf');
+      if (fs.existsSync(fallback)) return fallback;
+    }
+    return primary;
   }
   return file; // 绝对路径直接返回
 }

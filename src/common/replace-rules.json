@@ -12,6 +12,18 @@
     "enabled": true
   },
   {
+    "url": "http://43.138.190.6/seer2/dll/Seer2CoreDLL.swf",
+    "file": ".\\CoreDLL.swf",
+    "label": "对战版",
+    "enabled": false
+  },
+  {
+    "url": "http://43.138.190.6/seer2/res/ui/FramePlayer.swf",
+    "file": ".\\FramePlayer.swf",
+    "label": "改服ui特修",
+    "enabled": false
+  },
+  {
     "url": "http://43.138.190.6/seer2/res/map/config/70.xml",
     "file": "http://seer2.61.com/res/map/config/70.xml",
     "label": "官服传送室配置",
