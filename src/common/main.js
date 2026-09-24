@@ -1303,6 +1303,12 @@ function showImageWin(key) {
     _imageWins[k] = null;
   });
   if (_imageWins[key] && !_imageWins[key].isDestroyed()) {
+    if (_imageWins[key].isMinimized()) {
+      _imageWins[key].restore();
+      _imageWins[key].focus();
+      try { _imageWins[key].moveTop(); } catch(_) {}
+      return;
+    }
     _imageWins[key].close(); _imageWins[key] = null; _imageWinPins[key] = false;
     return;
   }
@@ -1352,9 +1358,11 @@ function showImageWin(key) {
     }
   });
   win.on('focus', function() {
+    recordWindowFocus(win);
     try { win.moveTop(); } catch(_) {}
   });
   win.on('closed', function() {
+    removeWindowFromZStack(win);
     try { win.removeAllListeners(); } catch(e) {}
     _imageWins[key] = null;
     _imageWinPins[key] = false;
@@ -1494,6 +1502,83 @@ function onGameWindowMoved() {
 }
 var _overlayClosing = {}, overlayPinState = {}, _gameMinimized = false;
 var _minimizedByGameMin = {};
+var _windowZStack = [];
+function recordWindowFocus(win) {
+  if (!win) return;
+  var idx = _windowZStack.indexOf(win);
+  if (idx !== -1) _windowZStack.splice(idx, 1);
+  _windowZStack.push(win);
+}
+function removeWindowFromZStack(win) {
+  var idx = _windowZStack.indexOf(win);
+  if (idx !== -1) _windowZStack.splice(idx, 1);
+}
+
+var _minimizedByAppBlur = {}, _appBlurTimer = null, _isMinimizingLock = false, _unlockTimer = null;
+
+function restoreAppBlurredWindows() {
+  if (_isMinimizingLock) return;
+  var toRestore = [];
+  Object.keys(_minimizedByAppBlur).forEach(function(key) {
+    if (!_minimizedByAppBlur[key]) return;
+    var w = null;
+    if (key.indexOf('overlay_') === 0) {
+      w = overlayWins[key.slice(8)];
+    } else if (key.indexOf('img_') === 0) {
+      w = _imageWins[key.slice(4)];
+    }
+    if (w && !w.isDestroyed() && w.isMinimized()) {
+      toRestore.push(w);
+    }
+    _minimizedByAppBlur[key] = false;
+  });
+
+  if (toRestore.length === 0) return;
+
+  toRestore.sort(function(a, b) {
+    return _windowZStack.indexOf(a) - _windowZStack.indexOf(b);
+  });
+
+  toRestore.forEach(function(w) {
+    try { w.restore(); } catch(_) {}
+    try { w.moveTop(); } catch(_) {}
+  });
+}
+
+app.on('browser-window-blur', function() {
+  clearTimeout(_appBlurTimer);
+  _appBlurTimer = setTimeout(function() {
+    if (_isMinimizingLock) return;
+    var focused = BrowserWindow.getFocusedWindow();
+    if (!focused) {
+      _isMinimizingLock = true;
+      clearTimeout(_unlockTimer);
+      Object.keys(overlayWins).forEach(function(name) {
+        var w = overlayWins[name];
+        if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized() && !overlayPinState[name]) {
+          _minimizedByAppBlur['overlay_' + name] = true;
+          try { w.minimize(); } catch(_) {}
+        }
+      });
+      Object.keys(_imageWins).forEach(function(k) {
+        var w = _imageWins[k];
+        if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized() && !_imageWinPins[k]) {
+          _minimizedByAppBlur['img_' + k] = true;
+          try { w.minimize(); } catch(_) {}
+        }
+      });
+      _unlockTimer = setTimeout(function() {
+        _isMinimizingLock = false;
+      }, 350);
+    }
+  }, 120);
+});
+
+app.on('browser-window-focus', function() {
+  clearTimeout(_appBlurTimer);
+  if (_isMinimizingLock) return;
+  restoreAppBlurredWindows();
+});
 var skinOverlayVisibility = createOverlayVisibilityIntent();
 
 function visibleSkinToolWindow(kind) {
@@ -1615,7 +1700,11 @@ function toggleOverlay(name) {
   }
   if (name === 'scanner') {
     if (win && !win.isDestroyed()) {
-      if (win.isVisible()) {
+      if (win.isMinimized()) {
+        win.restore();
+        win.focus();
+        try { win.moveTop(); } catch(_) {}
+      } else if (win.isVisible()) {
         win.hide();
       } else {
         activateSkinLibrarySurface();
@@ -1628,6 +1717,12 @@ function toggleOverlay(name) {
     }
   } else if (name === 'skin') {
     if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) {
+        win.restore();
+        win.focus();
+        try { win.moveTop(); } catch(_) {}
+        return;
+      }
       if (win.isVisible()) {
         skinOverlayVisibility.requestClose();
         _overlayClosing[name] = true;
@@ -1648,6 +1743,12 @@ function toggleOverlay(name) {
     }
   } else {
     if (win && !win.isDestroyed()) {
+      if (win.isMinimized()) {
+        win.restore();
+        win.focus();
+        try { win.moveTop(); } catch(_) {}
+        return;
+      }
       _overlayClosing[name] = true; saveOneOverlayBounds(name, win); win.close(); return;
     }
   }
@@ -1691,6 +1792,7 @@ function toggleOverlay(name) {
   newWin.loadFile(cfg.file);
 
   newWin.on('focus', function() {
+    recordWindowFocus(newWin);
     try { newWin.moveTop(); } catch(_) {}
   });
 
@@ -1777,6 +1879,7 @@ function toggleOverlay(name) {
   newWin.on('moved',   _tMove);
   newWin.on('resized', _tResize);
   newWin.on('closed', function() {
+    removeWindowFromZStack(newWin);
     clearSkinReadyFallback();
     try { skinUiReadyWebContents.delete(newWin.webContents.id); } catch(_) {}
     try { newWin.webContents.removeAllListeners(); } catch(e) {}
@@ -2417,24 +2520,32 @@ function _bringOverlaysToTop(immediate) {
     _bringOverlaysTimer = null;
     if (!gameWin || gameWin.isDestroyed() || _gameMinimized) return;
     var activeSkinTool = visibleSkinToolWindow(activeSkinToolKind);
-    Object.keys(overlayWins).forEach(function(name) {
-      var w = overlayWins[name];
-      if (name === 'skin' && activeSkinTool) return;
-      if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized() && !_overlayClosing[name]) {
-        if (_alwaysOnTop || overlayPinState[name]) {
+    if (_windowZStack.length > 0) {
+      _windowZStack.forEach(function(w) {
+        if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized()) {
           try { w.moveTop(); } catch(_) {}
         }
-      }
-    });
+      });
+    } else {
+      Object.keys(overlayWins).forEach(function(name) {
+        var w = overlayWins[name];
+        if (name === 'skin' && activeSkinTool) return;
+        if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized() && !_overlayClosing[name]) {
+          if (_alwaysOnTop || overlayPinState[name]) {
+            try { w.moveTop(); } catch(_) {}
+          }
+        }
+      });
+      Object.keys(_imageWins).forEach(function(k) {
+        var w = _imageWins[k];
+        if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized()) {
+          if (_alwaysOnTop || _imageWinPins[k]) {
+            try { w.moveTop(); } catch(_) {}
+          }
+        }
+      });
+    }
     bringCurrentSkinToolToTop();
-    Object.keys(_imageWins).forEach(function(k) {
-      var w = _imageWins[k];
-      if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized()) {
-        if (_alwaysOnTop || _imageWinPins[k]) {
-          try { w.moveTop(); } catch(_) {}
-        }
-      }
-    });
   };
   if (immediate) {
     doBring();
