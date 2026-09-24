@@ -1231,6 +1231,19 @@ async function doClearCacheAndReload() {
   _prepareReload('ClearReload');
 
   await settlePendingCustomSkinAssignmentsAfterFlashExit();
+  // 联动“清除全部皮肤绑定缓存”（彻底删除各账号 skinDefine.sol，防止切版本/切号残留卡死）
+  try {
+    await new Promise(function(resolve) { setTimeout(resolve, 120); });
+    var skinBindReset = clearCustomSkinAssignmentSharedObjects();
+    if (typeof _customSkinAssignmentResetPending !== 'undefined') {
+      _customSkinAssignmentResetPending = false;
+      _customSkinAssignmentResetAllPending = false;
+      if (_customSkinAssignmentResetPendingIds && _customSkinAssignmentResetPendingIds.clear) {
+        _customSkinAssignmentResetPendingIds.clear();
+      }
+    }
+    logInfo('ClearReload', 'Skin binding cache wiped during clear-cache reload', skinBindReset);
+  } catch(e) { logWarn('ClearReload', 'Skin binding cache wipe failed: ' + (e && e.message || String(e))); }
 
   try {
     var wipeResult = coreNet.clearAllCache();
@@ -1290,7 +1303,8 @@ function showImageWin(key) {
     _imageWins[k] = null;
   });
   if (_imageWins[key] && !_imageWins[key].isDestroyed()) {
-    _imageWins[key].close(); _imageWins[key] = null; _imageWinPins[key] = false; return;
+    _imageWins[key].close(); _imageWins[key] = null; _imageWinPins[key] = false;
+    return;
   }
   var CFG = {
     'qq-group': { title:'加入Q群',  img:'qq-group.jpg',   w:420, h:700, topLabel:'群号：',     topValue:'1057843169',            copyText:'1057843169',           copyBtn:'复制群号' },
@@ -1309,9 +1323,6 @@ function showImageWin(key) {
     show:false, skipTaskbar:false,
   };
   if (savedPos) { winOpts.x = savedPos.x; winOpts.y = savedPos.y; }
-  if (gameWin && !gameWin.isDestroyed()) {
-    winOpts.parent = gameWin;
-  }
   if (_alwaysOnTop) {
     winOpts.alwaysOnTop = true;
   }
@@ -1335,26 +1346,18 @@ function showImageWin(key) {
   win.once('ready-to-show', function() {
     var w = _imageWins[key];
     if (w && !w.isDestroyed()) {
-      if (gameWin && !gameWin.isDestroyed()) {
-        try { w.setParentWindow(gameWin); } catch(_) {}
-      }
-      if (_alwaysOnTop || _imageWinPins[key]) {
-        try { w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu'); } catch(_) {}
-      }
-      try { w.showInactive(); } catch(_) { w.show(); }
+      try { w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'floating'); } catch(_) {}
+      try { w.show(); } catch(_) {}
       try { w.moveTop(); } catch(_) {}
-      if (gameWin && !gameWin.isDestroyed()) {
-        try { gameWin.focus(); } catch(_) {}
-      }
     }
+  });
+  win.on('focus', function() {
+    try { win.moveTop(); } catch(_) {}
   });
   win.on('closed', function() {
     try { win.removeAllListeners(); } catch(e) {}
     _imageWins[key] = null;
     _imageWinPins[key] = false;
-    if (gameWin && !gameWin.isDestroyed()) {
-      try { gameWin.focus(); } catch(_) {}
-    }
   });
   _imageWins[key] = win;
 }
@@ -1504,18 +1507,17 @@ function currentSkinToolWindow() {
 
 function bringCurrentSkinToolToTop() {
   var win = currentSkinToolWindow();
-  if (!win) return false;
+  if (!win || win.isDestroyed() || !win.isVisible() || win.isMinimized()) return false;
+  var isPinned = !!skinToolPinState[activeSkinToolKind] || (!!overlayPinState.skin && activeSkinToolKind);
+  if (!_alwaysOnTop && !isPinned) return false;
   try { win.moveTop(); } catch(_) {}
   return true;
 }
 
 function applySkinToolTopPolicy(kind, win) {
   if (!win || win.isDestroyed()) return;
-  var shouldFloat = !!skinToolPinState[kind] ||
-    (!!overlayPinState.skin && activeSkinToolKind === kind);
   try {
-    if (shouldFloat) win.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu');
-    else win.setAlwaysOnTop(false);
+    win.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'floating');
   } catch(_) {}
 }
 
@@ -1617,9 +1619,6 @@ function toggleOverlay(name) {
         win.hide();
       } else {
         activateSkinLibrarySurface();
-        if (gameWin && !gameWin.isDestroyed()) {
-          try { win.setParentWindow(gameWin); } catch(_) {}
-        }
         win.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu');
         win.show();
         win.focus();
@@ -1638,9 +1637,6 @@ function toggleOverlay(name) {
       } else {
         activateSkinLibrarySurface();
         skinOverlayVisibility.requestOpen();
-        if (gameWin && !gameWin.isDestroyed()) {
-          try { win.setParentWindow(gameWin); } catch(_) {}
-        }
         if (_alwaysOnTop) {
           try { win.setAlwaysOnTop(true, 'screen-saver'); } catch(_) {}
         }
@@ -1691,11 +1687,12 @@ function toggleOverlay(name) {
     webPreferences:{ nodeIntegration:false, contextIsolation:true, sandbox:false, preload:path.join(__dirname,'preload.js'), plugins:false, backgroundThrottling:false, spellcheck:false, enableWebSQL:false, v8CacheOptions:'bypassHeatCheck' },
     show:false, skipTaskbar:false,
   };
-  if (gameWin && !gameWin.isDestroyed()) {
-    winOpts.parent = gameWin;
-  }
   var newWin = new BrowserWindow(winOpts);
   newWin.loadFile(cfg.file);
+
+  newWin.on('focus', function() {
+    try { newWin.moveTop(); } catch(_) {}
+  });
 
   var _selfDestroying = false;
   var _disposeForCrash = function(reason) {
@@ -1743,12 +1740,7 @@ function toggleOverlay(name) {
     if (name === 'skin' && !skinOverlayVisibility.shouldShow()) return;
     if (name === 'skin' && currentSkinToolWindow()) return;
     clearSkinReadyFallback();
-    if (gameWin && !gameWin.isDestroyed()) {
-      try { w.setParentWindow(gameWin); } catch(_) {}
-    }
-    if (_alwaysOnTop || overlayPinState[name]) {
-      try { w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu'); } catch(_) {}
-    }
+    try { w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'floating'); } catch(_) {}
     w.show();
     try { w.focus(); } catch(_) {}
     try { w.moveTop(); } catch(_) {} // 提升到当前 Z 序顶层
@@ -2125,9 +2117,6 @@ function openCustomSkinToolWindow(request) {
     icon:path.join(__dirname,'icon.ico'), show:false, skipTaskbar:false,
     webPreferences:toolWebPreferences,
   };
-  if (gameWin && !gameWin.isDestroyed()) {
-    toolWinOpts.parent = gameWin;
-  }
   if (_alwaysOnTop) {
     toolWinOpts.alwaysOnTop = true;
   }
@@ -2296,6 +2285,7 @@ function buildGameMenu() {
       if (!wc) return;
       if (wc.isDevToolsOpened()) wc.closeDevTools();
       else wc.openDevTools();
+      _bringOverlaysToTop(true);
     } },
     SEP,
     { label: _alwaysOnTop ? '📌 已置顶' : '📌 置顶', click: () => toggleAlwaysOnTop() },
@@ -2421,9 +2411,9 @@ var _exitCleanupDone = false;
 var _gameBoundsClampBusy = false;
 
 var _bringOverlaysTimer = null;
-function _bringOverlaysToTop() {
+function _bringOverlaysToTop(immediate) {
   if (_bringOverlaysTimer) { clearTimeout(_bringOverlaysTimer); _bringOverlaysTimer = null; }
-  _bringOverlaysTimer = setTimeout(function() {
+  var doBring = function() {
     _bringOverlaysTimer = null;
     if (!gameWin || gameWin.isDestroyed() || _gameMinimized) return;
     var activeSkinTool = visibleSkinToolWindow(activeSkinToolKind);
@@ -2431,17 +2421,26 @@ function _bringOverlaysToTop() {
       var w = overlayWins[name];
       if (name === 'skin' && activeSkinTool) return;
       if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized() && !_overlayClosing[name]) {
-        try { w.moveTop(); } catch(_) {}
-      }
-    });
-    Object.keys(_imageWins).forEach(function(k) {
-      var w = _imageWins[k];
-      if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized()) {
-        try { w.moveTop(); } catch(_) {}
+        if (_alwaysOnTop || overlayPinState[name]) {
+          try { w.moveTop(); } catch(_) {}
+        }
       }
     });
     bringCurrentSkinToolToTop();
-  }, 20);
+    Object.keys(_imageWins).forEach(function(k) {
+      var w = _imageWins[k];
+      if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized()) {
+        if (_alwaysOnTop || _imageWinPins[k]) {
+          try { w.moveTop(); } catch(_) {}
+        }
+      }
+    });
+  };
+  if (immediate) {
+    doBring();
+  } else {
+    _bringOverlaysTimer = setTimeout(doBring, 50);
+  }
 }
 
 var GAME_PAGE_INIT_JS = [
@@ -3548,6 +3547,9 @@ function createGame() {
   gameWin.webContents.on('crashed',             (_,k) => console.log('[Diag] crashed killed:', k));
   gameWin.webContents.on('render-process-gone', (_,d) => console.log('[Diag] gone reason:', d.reason));
   gameWin.on('unresponsive', function() { if (_appQuitting) return; logWarn('Game','unresponsive'); _prepareReload('Unresponsive'); _navigateGameAfterKill('unresponsive'); });
+  gameWin.webContents.on('devtools-opened', function() {
+    _bringOverlaysToTop(true);
+  });
     gameWin.loadURL(getGameEntryUrl());
   gameWin.once('ready-to-show', function() {
     var pid0 = gameWin.webContents.getOSProcessId();
@@ -3631,7 +3633,6 @@ function createGame() {
   });
   gameWin.on('focus', function() {
     if (_gameMinimized) return;
-    _bringOverlaysToTop();
   });
   var _throttledMove = _makeThrottle(function() {
     onGameWindowMoved();
@@ -3934,6 +3935,20 @@ function clearCustomSkinAssignmentSharedObjects(skinIds) {
   addRoot(path.join(app.getPath('userData'), 'Macromedia', 'Flash Player', '#SharedObjects'));
   addRoot(path.join(app.getPath('appData'), 'Pepper Data', 'Shockwave Flash',
     'WritableRoot', '#SharedObjects'));
+  try {
+    var appDataDir = app.getPath('appData');
+    ['seer2-launcher', 'seer2-chunshu-launcher', 'seer2-chunshu-launcher-no-skin', 'seer2-next-client', 'Electron'].forEach(function(appName) {
+      addRoot(path.join(appDataDir, appName, 'Pepper Data', 'Shockwave Flash', 'WritableRoot', '#SharedObjects'));
+    });
+    addRoot(path.join(appDataDir, 'com.arcadia.seer2.desktop', 'Local Store', '#SharedObjects'));
+  } catch(_) {}
+  try {
+    var exeDir = path.dirname(app.getPath('exe'));
+    addRoot(path.join(exeDir, 'login-data', 'Pepper Data', 'Shockwave Flash', 'WritableRoot', '#SharedObjects'));
+  } catch(_) {}
+  try {
+    addRoot(path.join(process.cwd(), 'login-data', 'Pepper Data', 'Shockwave Flash', 'WritableRoot', '#SharedObjects'));
+  } catch(_) {}
   for (var rootIndex = 0; rootIndex < roots.length; rootIndex++) {
     var root = roots[rootIndex];
     if (!fs.existsSync(root)) continue;
@@ -13758,24 +13773,14 @@ ipcMain.on('game-window-click',   function() {
   closeUnpinnedOverlays();
 });
 ipcMain.on('overlay-set-pinned',  function(event, pinned) {
-  var NEEDS_KEYBOARD = new Set(['scanner','replace','proxy','skin']);
   Object.keys(overlayWins).forEach(function(name) {
     var w = overlayWins[name];
     if (!w || w.isDestroyed() || w.webContents.id !== event.sender.id) return;
     overlayPinState[name] = !!pinned;
-    if (pinned) {
-      w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu');
-      if (!NEEDS_KEYBOARD.has(name)) {
-        w.setFocusable(false);
-      }
-    } else {
-      w.setFocusable(true);
-      if (_alwaysOnTop) {
-        w.setAlwaysOnTop(true, 'pop-up-menu');
-      } else {
-        w.setAlwaysOnTop(false);
-      }
+    if (_alwaysOnTop) {
+      try { w.setAlwaysOnTop(true, 'screen-saver'); } catch(_) {}
     }
+    try { w.moveTop(); } catch(_) {}
     if (name === 'skin' && activeSkinToolKind) {
       applySkinToolTopPolicy(activeSkinToolKind, skinToolWins[activeSkinToolKind]);
     }
@@ -13784,7 +13789,10 @@ ipcMain.on('overlay-set-pinned',  function(event, pinned) {
     var w = skinToolWins[kind];
     if (!w || w.isDestroyed() || w.webContents.id !== event.sender.id) return;
     skinToolPinState[kind] = !!pinned;
-    w.setFocusable(true);
+    if (_alwaysOnTop) {
+      try { w.setAlwaysOnTop(true, 'screen-saver'); } catch(_) {}
+    }
+    try { w.moveTop(); } catch(_) {}
     applySkinToolTopPolicy(kind, w);
   });
 });
@@ -13794,17 +13802,13 @@ ipcMain.on('image-win-pinned',    function(event, pinned) {
   Object.keys(_imageWins).forEach(function(k) {
     var w = _imageWins[k];
     if (!w || w.isDestroyed() || w.webContents.id !== event.sender.id) return;
-    _imageWinPins[k] = !!pinned;
-    try { w.setFocusable(true); } catch(_) {}
-    if (pinned) {
-      w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu');
-    } else {
-      if (_alwaysOnTop) {
-        w.setAlwaysOnTop(true, 'pop-up-menu');
-      } else {
-        w.setAlwaysOnTop(false);
-      }
+    var nextPinned = !!pinned;
+    if (_imageWinPins[k] === nextPinned) return;
+    _imageWinPins[k] = nextPinned;
+    if (_alwaysOnTop) {
+      try { w.setAlwaysOnTop(true, 'screen-saver'); } catch(_) {}
     }
+    try { w.moveTop(); } catch(_) {}
   });
 });
 ipcMain.on('open-external',       (_, url) => shell.openExternal(url));
