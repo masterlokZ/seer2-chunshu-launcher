@@ -1134,9 +1134,6 @@ function showImageWin(key) {
     show:false, skipTaskbar:false,
   };
   if (savedPos) { winOpts.x = savedPos.x; winOpts.y = savedPos.y; }
-  if (gameWin && !gameWin.isDestroyed()) {
-    winOpts.parent = gameWin;
-  }
   if (_alwaysOnTop) {
     winOpts.alwaysOnTop = true;
   }
@@ -1160,17 +1157,9 @@ function showImageWin(key) {
   win.once('ready-to-show', function() {
     var w = _imageWins[key];
     if (w && !w.isDestroyed()) {
-      if (gameWin && !gameWin.isDestroyed()) {
-        try { w.setParentWindow(gameWin); } catch(_) {}
-      }
-      if (_alwaysOnTop || _imageWinPins[key]) {
-        try { w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu'); } catch(_) {}
-      }
-      try { w.showInactive(); } catch(_) { w.show(); }
+      try { w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'floating'); } catch(_) {}
+      try { w.show(); } catch(_) {}
       try { w.moveTop(); } catch(_) {}
-      if (gameWin && !gameWin.isDestroyed()) {
-        try { gameWin.focus(); } catch(_) {}
-      }
     }
   });
   win.on('focus', function() {
@@ -1182,9 +1171,6 @@ function showImageWin(key) {
     try { win.removeAllListeners(); } catch(e) {}
     _imageWins[key] = null;
     _imageWinPins[key] = false;
-    if (gameWin && !gameWin.isDestroyed()) {
-      try { gameWin.focus(); } catch(_) {}
-    }
   });
   _imageWins[key] = win;
 }
@@ -1419,9 +1405,6 @@ function toggleOverlay(name) {
       } else if (win.isVisible()) {
         win.hide();
       } else {
-        if (gameWin && !gameWin.isDestroyed()) {
-          try { win.setParentWindow(gameWin); } catch(_) {}
-        }
         win.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu');
         win.show();
         win.focus();
@@ -1468,7 +1451,6 @@ function toggleOverlay(name) {
     webPreferences:{ nodeIntegration:false, contextIsolation:true, sandbox:false, preload:path.join(__dirname,'preload.js'), plugins:false, backgroundThrottling:false, spellcheck:false, enableWebSQL:false, v8CacheOptions:'bypassHeatCheck' },
     show:false, skipTaskbar:false,
   };
-  if (gameWin && !gameWin.isDestroyed()) winOpts.parent = gameWin;
   var newWin = new BrowserWindow(winOpts);
   newWin.loadFile(cfg.file);
 
@@ -1497,12 +1479,7 @@ function toggleOverlay(name) {
   newWin.once('ready-to-show', function() {
     var current = overlayWins[name];
     if (!current || current.isDestroyed()) return;
-    if (gameWin && !gameWin.isDestroyed()) {
-      try { current.setParentWindow(gameWin); } catch(_) {}
-    }
-    if (_alwaysOnTop || overlayPinState[name]) {
-      try { current.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu'); } catch(_) {}
-    }
+    try { current.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'floating'); } catch(_) {}
     current.show();
     try { current.focus(); } catch(_) {}
     try { current.moveTop(); } catch(_) {}
@@ -1605,6 +1582,7 @@ function buildGameMenu() {
       if (!wc) return;
       if (wc.isDevToolsOpened()) wc.closeDevTools();
       else wc.openDevTools();
+      _bringOverlaysToTop(true);
     } },
     SEP,
     { label: _alwaysOnTop ? '📌 已置顶' : '📌 置顶', click: () => toggleAlwaysOnTop() },
@@ -1730,9 +1708,9 @@ var _exitCleanupDone = false;
 var _gameBoundsClampBusy = false;
 
 var _bringOverlaysTimer = null;
-function _bringOverlaysToTop() {
+function _bringOverlaysToTop(immediate) {
   if (_bringOverlaysTimer) { clearTimeout(_bringOverlaysTimer); _bringOverlaysTimer = null; }
-  _bringOverlaysTimer = setTimeout(function() {
+  var doBring = function() {
     _bringOverlaysTimer = null;
     if (!gameWin || gameWin.isDestroyed() || _gameMinimized) return;
     if (_windowZStack.length > 0) {
@@ -1745,17 +1723,26 @@ function _bringOverlaysToTop() {
       Object.keys(overlayWins).forEach(function(name) {
         var w = overlayWins[name];
         if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized() && !_overlayClosing[name]) {
-          try { w.moveTop(); } catch(_) {}
+          if (_alwaysOnTop || overlayPinState[name]) {
+            try { w.moveTop(); } catch(_) {}
+          }
         }
       });
       Object.keys(_imageWins).forEach(function(k) {
         var w = _imageWins[k];
         if (w && !w.isDestroyed() && w.isVisible() && !w.isMinimized()) {
-          try { w.moveTop(); } catch(_) {}
+          if (_alwaysOnTop || _imageWinPins[k]) {
+            try { w.moveTop(); } catch(_) {}
+          }
         }
       });
     }
-  }, 20);
+  };
+  if (immediate) {
+    doBring();
+  } else {
+    _bringOverlaysTimer = setTimeout(doBring, 50);
+  }
 }
 
 var GAME_PAGE_INIT_JS = [
@@ -2862,6 +2849,9 @@ function createGame() {
   gameWin.webContents.on('crashed',             (_,k) => console.log('[Diag] crashed killed:', k));
   gameWin.webContents.on('render-process-gone', (_,d) => console.log('[Diag] gone reason:', d.reason));
   gameWin.on('unresponsive', function() { if (_appQuitting) return; logWarn('Game','unresponsive'); _prepareReload('Unresponsive'); _navigateGameAfterKill('unresponsive'); });
+  gameWin.webContents.on('devtools-opened', function() {
+    _bringOverlaysToTop(true);
+  });
     gameWin.loadURL(getGameEntryUrl());
   gameWin.once('ready-to-show', function() {
     var pid0 = gameWin.webContents.getOSProcessId();
@@ -2935,7 +2925,6 @@ function createGame() {
   });
   gameWin.on('focus', function() {
     if (_gameMinimized) return;
-    _bringOverlaysToTop();
   });
   var _throttledMove = _makeThrottle(function() {
     onGameWindowMoved();
@@ -3247,6 +3236,7 @@ app.whenReady().then(async function() {
       { url: 'http://43.138.190.6/seer2/module/app/ItemBagPanel.swf', file: '.\\背包装扮穿戴修复.swf', label:'背包修复', enabled: true },
       { url: 'http://43.138.190.6/seer2/dll/Seer2CoreDLL.swf', file: '.\\CoreDLL.swf', label:'对战版', enabled: false },
       { url: 'http://43.138.190.6/seer2/res/ui/FramePlayer.swf', file: '.\\FramePlayer.swf', label: '改服ui特修', enabled: false },
+      { url: 'http://43.138.190.6/seer2/module/app/PetSkinPanel.swf', file: '.\\PetSkinPanel.swf', label: '精灵皮肤配置特修', enabled: false },
       { url: 'http://43.138.190.6/seer2/res/map/config/70.xml', file: 'http://seer2.61.com/res/map/config/70.xml', label:'官服传送室配置', enabled: false },
       { url: 'http://43.138.190.6/seer2/module/app/MapPanel.swf', file: 'http://seer2.61.com/module/app/MapPanel.swf', label:'官服地图', enabled: false },
       { url: 'http://43.138.190.6/seer2/res/ui/UI_Arena.swf', file: 'http://seer2.61.com/res/ui/UI_Arena.swf', label:'官服战斗 UI', enabled: false },
@@ -3374,24 +3364,14 @@ ipcMain.on('game-window-click',   function() {
   closeUnpinnedOverlays();
 });
 ipcMain.on('overlay-set-pinned',  function(event, pinned) {
-  var NEEDS_KEYBOARD = new Set(['scanner','replace','proxy']);
   Object.keys(overlayWins).forEach(function(name) {
     var w = overlayWins[name];
     if (!w || w.isDestroyed() || w.webContents.id !== event.sender.id) return;
     overlayPinState[name] = !!pinned;
-    if (pinned) {
-      w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu');
-      if (!NEEDS_KEYBOARD.has(name)) {
-        w.setFocusable(false);
-      }
-    } else {
-      w.setFocusable(true);
-      if (_alwaysOnTop) {
-        w.setAlwaysOnTop(true, 'pop-up-menu');
-      } else {
-        w.setAlwaysOnTop(false);
-      }
+    if (_alwaysOnTop) {
+      try { w.setAlwaysOnTop(true, 'screen-saver'); } catch(_) {}
     }
+    try { w.moveTop(); } catch(_) {}
   });
 });
 ipcMain.on('close-app',           () => app.quit());
@@ -3400,17 +3380,13 @@ ipcMain.on('image-win-pinned',    function(event, pinned) {
   Object.keys(_imageWins).forEach(function(k) {
     var w = _imageWins[k];
     if (!w || w.isDestroyed() || w.webContents.id !== event.sender.id) return;
-    _imageWinPins[k] = !!pinned;
-    try { w.setFocusable(true); } catch(_) {}
-    if (pinned) {
-      w.setAlwaysOnTop(true, _alwaysOnTop ? 'screen-saver' : 'pop-up-menu');
-    } else {
-      if (_alwaysOnTop) {
-        w.setAlwaysOnTop(true, 'pop-up-menu');
-      } else {
-        w.setAlwaysOnTop(false);
-      }
+    var nextPinned = !!pinned;
+    if (_imageWinPins[k] === nextPinned) return;
+    _imageWinPins[k] = nextPinned;
+    if (_alwaysOnTop) {
+      try { w.setAlwaysOnTop(true, 'screen-saver'); } catch(_) {}
     }
+    try { w.moveTop(); } catch(_) {}
   });
 });
 ipcMain.on('open-external',       (_, url) => shell.openExternal(url));

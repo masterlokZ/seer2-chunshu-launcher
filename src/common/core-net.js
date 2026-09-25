@@ -209,6 +209,12 @@ function _resolveReplaceFile(file) {
     } else if (relative === 'skin-mode' + require('path').sep + 'FramePlayer.swf') {
       const fallback = require('path').join(_localSwfDir, 'FramePlayer.swf');
       if (fs.existsSync(fallback)) return fallback;
+    } else if (relative === 'PetSkinPanel.swf') {
+      const fallback = require('path').join(_localSwfDir, 'skin-mode', 'PetSkinPanel.swf');
+      if (fs.existsSync(fallback)) return fallback;
+    } else if (relative === 'skin-mode' + require('path').sep + 'PetSkinPanel.swf') {
+      const fallback = require('path').join(_localSwfDir, 'PetSkinPanel.swf');
+      if (fs.existsSync(fallback)) return fallback;
     }
     return primary;
   }
